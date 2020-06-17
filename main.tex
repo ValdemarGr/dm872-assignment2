@@ -1,0 +1,78 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{verbatim}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usepackage{rotating}
+\usetikzlibrary{positioning}
+\usepackage{bussproofs}
+\usepackage{turnstile}
+\usepackage{stmaryrd}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\usepackage{cancel}
+\newcommand{\lnec}{\Box}
+
+\usepackage[edges]{forest}
+\usepackage{amssymb}
+\usepackage{comment}
+\usepackage{minted}
+\newcommand\mymapsto{\mathrel{\ooalign{$\rightarrow$\cr%
+    \kern-.15ex\raise.275ex\hbox{\scalebox{1}[0.522]{$\mid$}}\cr}}}
+\definecolor {processblue}{cmyk}{0.96,0,0,0}
+
+\title{DM872 assignment 2}
+\author{sagra16 \\(Valdemar Grange - 081097-2033) }
+\date{June 2020}
+
+\begin{document}
+
+    \maketitle
+    
+    \clearpage
+
+    \section*{Task 1}
+    The (capacitated vehicle routing problem) CVRP can be formulated as a set-partitioning problem as follows.
+
+    \begin{equation*}
+        \begin{array}{ll@{}ll}
+            \text{minimize}  & \displaystyle\sum_{r \in \Omega} c_r \theta_r& &\\
+            \text{subject to}& \displaystyle\sum_{r \in \Omega} a_{i, r} \theta_r ,&   &\forall i \in N\\
+                             & \displaystyle\sum \theta_r \leq m &&\\\\
+                             & \displaystyle \theta_r  \in \{0,1\},  && \forall r \in \Omega
+        \end{array}
+    \end{equation*}
+    
+    Compared to the tasked problem we need a couple of things to complete the model.
+    We implicitly only allow routes that satisfy the capacity limit by only allowing such sets in the problem.\\\\
+    The "additional" aspect is the time windows, which we can model quite easily by the following constraint.
+    \[
+    \theta_r \, a_{i,r} \, q_{i,r} \leq l_i   , \,\,\,\,\,\,\,\,\, \forall i \in N, \, \forall r \in \Omega
+    \]
+    We let $q_{i,r}$ denote the time it takes to reach customer $i$ in route $r$.
+    This can simply be implemented by.
+\begin{minted}{python}
+def q(i, r):
+    accum = 0
+    rRoutes =  Omega[r]
+    routesBefore = rRoutes[:i - 1]
+    for j in routesBefore:
+        # Route from j - 1 to j
+        travelCost = timeCost[i, j]
+        # Account for waiting time if we are too early
+        # The time when we are here (i) is accum + time for this travel step
+        # If the difference from e_i, eg e_i - (travelCost + accum)
+        # is positive, then we must wait for so long
+        # such that the customer can be served.
+        additionalCost = min(0, e_i - (travelCost + accum))
+        accum = additionalCost + travelCost + accum
+    return accum
+\end{minted}
+    Keep in mind that this will effectively create many constraints, as the amount of constraints is the number of customers times the number of routes.
+    Which is by far the most "explosive" set of constraints.
+ 
+
+\end{document}
