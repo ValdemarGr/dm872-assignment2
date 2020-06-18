@@ -40,7 +40,7 @@
     \begin{equation*}
         \begin{array}{ll@{}ll}
             \text{minimize}  & \displaystyle\sum_{r \in \Omega} c_r \theta_r& &\\
-            \text{subject to}& \displaystyle\sum_{r \in \Omega} a_{i, r} \theta_r ,&   &\forall i \in N\\
+            \text{subject to}& \displaystyle\sum_{r \in \Omega} a_{i, r} \theta_r = 1 ,&   &\forall i \in N\\
                              & \displaystyle\sum \theta_r \leq m &&\\\\
                              & \displaystyle \theta_r  \in \{0,1\},  && \forall r \in \Omega
         \end{array}
@@ -52,27 +52,52 @@
     \[
     \theta_r \, a_{i,r} \, q_{i,r} \leq l_i   , \,\,\,\,\,\,\,\,\, \forall i \in N, \, \forall r \in \Omega
     \]
-    We let $q_{i,r}$ denote the time it takes to reach customer $i$ in route $r$.
-    This can simply be implemented by.
-\begin{minted}{python}
-def q(i, r):
-    accum = 0
-    rRoutes =  Omega[r]
-    routesBefore = rRoutes[:i - 1]
-    for j in routesBefore:
-        # Route from j - 1 to j
-        travelCost = timeCost[i, j]
-        # Account for waiting time if we are too early
-        # The time when we are here (i) is accum + time for this travel step
-        # If the difference from e_i, eg e_i - (travelCost + accum)
-        # is positive, then we must wait for so long
-        # such that the customer can be served.
-        additionalCost = min(0, e_i - (travelCost + accum))
-        accum = additionalCost + travelCost + accum
-    return accum
-\end{minted}
-    Keep in mind that this will effectively create many constraints, as the amount of constraints is the number of customers times the number of routes.
-    Which is by far the most "explosive" set of constraints.
- 
+    We let $q_{i,r}$ denote the time it takes to reach customer $i$ in route $r$, where we include accounting for waiting for each customer in the route to be ready (eg the time window beginning).
+    This can simply be implemented by observing \texttt{makeQ} from the source code.
+    The optimal solution yields an objective value of $41$.
+
+    \clearpage
+    \section*{Task 2}
+    By introducing linear relaxation we can find a good, but not necessarily optimal solution.
+    We perform linear relaxation by relaxing the binary constraint, such that our model becomes.
+    \begin{equation*}
+        \begin{array}{ll@{}ll}
+            \text{minimize}  & \displaystyle\sum_{r \in \Omega} c_r \theta_r& &\\
+            \text{subject to}& \displaystyle\sum_{r \in \Omega} a_{i, r} \theta_r = 1 ,&   &\forall i \in N\\
+            & \displaystyle\sum \theta_r \leq m &&\\
+            & \displaystyle\theta_r \, a_{i,r} \, q_{i,r} \leq l_i, & & \forall i \in N, \, \forall r \in \Omega\\\\
+            & \displaystyle \theta_r  \geq 0,  && \forall r \in \Omega
+        \end{array}
+    \end{equation*}
+    The result from the above model yields $m = 7$ which is a violation of the original problem, furthermore an objective value of $36.699\dots$, which in fact is better than the optimal one because of the expanded feasibility polytope.
+    If we inspect the produced routes:
+    \[
+    \begin{bmatrix}
+    [0 & 0 & 1 & 1 & 0 & 0 & 0 & 0] \\
+    [0 & 0 & 0 & 0 & 1 & 0 & 0 & 1] \\
+    [1 & 1 & 1 & 0 & 0 & 0 & 0 & 0] \\
+    [1 & 1 & 0 & 1 & 0 & 0 & 0 & 0] \\
+    [0 & 0 & 1 & 0 & 1 & 0 & 0 & 1] \\
+    [0 & 0 & 0 & 0 & 1 & 1 & 1 & 0]
+    \end{bmatrix}
+    \]
+    We can observe that this solution is completely incorrect since both $m = 7$ and because of the removed integrality of $\theta_r$, the solution accepts half-taken paths.
+    To prove that a randomized rounding approach does not work, I fed the LP solution into the original IP model which was infeasible.
+    To fix this we must find a nearby integer solution to the found LP solution, which is within the feasibility space of the original constraints, by branching and bounding back to a nearby solution.
+    I set the initial values of all the $\theta_r$ variables to $1$ if they took a non-zero value in the LP relaxed solution, such that the branch and bound algorithm would pick the best nearby solution (also since the LP solution probably has some good IP solutions nearby).
+    I funnily enough got the objective value of $41$, so I am unsure that the solver accounts for initial values.\\\\
+
+    A Lagrangian relaxation might fit better since it is both tighter and does not pose so many questions about solution correctness.
+    The question of which variable is the best to relax is up to the specific scenario, eg if using extra drivers is possible, being late is okay or missing a couple of customers.
+    Assuming the relaxation of the "being late" or time window constraint, for the reason that these constraints might be the most critical to the solution time (because of $N \times \Omega$), one could change the objective function to the following.
+    \[
+        f(\lambda) = \displaystyle\sum_{r \in \Omega} c_r \theta_r - \left( \sum_{r \in \Omega} \sum_{i \in N} \lambda \left( \theta_r \, a_{i,r} \, q_{i,r} - l_i \right) \right)
+    \]
+    And then do gradient decent on the $\lambda$ until we find a good solution.
+
+
+
+
+
 
 \end{document}
