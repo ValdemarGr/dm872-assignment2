@@ -93,10 +93,39 @@
     \[
         f(\lambda) = \displaystyle\sum_{r \in \Omega} c_r \theta_r - \left( \sum_{r \in \Omega} \sum_{i \in N} \lambda \left( \theta_r \, a_{i,r} \, q_{i,r} - l_i \right) \right)
     \]
-    And then do gradient decent on the $\lambda$ until we find a good solution.
+    And then apply gradient decent by the Held and Karp algorithm to find a good set of $\lambda$ by the dual problem.
+    \begin{equation*}
+        \begin{array}{ll@{}ll}
+            \text{maximize}  & \displaystyle \sum_{r \in \Omega}\lambda_r + m \lambda_2& &\\
+            \text{subject to}& \displaystyle \sum_{i \in N} a_{i, r} \lambda_r  + \lambda_0 \leq c_r, && \forall r \in \Omega\\\\
+            & \displaystyle \theta_r \, a_{i,r} \, q_{i,r} - l_i \leq \lambda & & \forall i \in N ,\, \forall r \in \Omega \\\\
+            & \displaystyle \theta_r   \in \{0,1\},  && \forall r \in \Omega\\
+        \end{array}
+    \end{equation*}
+    \clearpage
 
-
-
+    \section*{Task 3}
+    Like in task 2, the master problem is actually just the linear relaxation of the original problem.
+    \begin{equation*}
+        \begin{array}{ll@{}ll}
+            \text{minimize}  & \displaystyle\sum_{r \in \Omega} c_r \theta_r& &\\
+            \text{subject to}& \displaystyle\sum_{r \in \Omega} a_{i, r} \theta_r = 1 ,&   &\forall i \in N\\
+            & \displaystyle\sum \theta_r \leq m &&\\
+            & \displaystyle\theta_r \, a_{i,r} \, q_{i,r} \leq l_i, & & \forall i \in N, \, \forall r \in \Omega\\\\
+            & \displaystyle \theta_r  \geq 0,  && \forall r \in \Omega
+        \end{array}
+    \end{equation*}
+    The restricted master problem is a subset of the master problem where we do not yet consider a majority of the available problem.
+    We denote this arbitrary subset by $\hat{\Omega} \subset \Omega$.
+    \begin{equation*}
+        \begin{array}{ll@{}ll}
+            \text{minimize}  & \displaystyle\sum_{r \in \hat{\Omega}} c_r \theta_r& &\\
+            \text{subject to}& \displaystyle\sum_{r \in \hat{\Omega}} a_{i, r} \theta_r = 1 ,&   &\forall i \in N\\
+            & \displaystyle\sum \theta_r \leq m &&\\
+            & \displaystyle\theta_r \, a_{i,r} \, q_{i,r} \leq l_i, & & \forall i \in N, \, \forall r \in \hat{\Omega}\\\\
+            & \displaystyle \theta_r  \geq 0,  && \forall r \in \hat{\Omega}
+        \end{array}
+    \end{equation*}
 
 
 
