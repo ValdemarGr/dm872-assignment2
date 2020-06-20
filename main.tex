@@ -31,6 +31,7 @@
 \begin{document}
 
     \maketitle
+    It should preemptively be noted that the \texttt{ipynb} notebook supplied along side with the code shows results and the way the code was developed.
     
     \clearpage
 
@@ -41,7 +42,7 @@
         \begin{array}{ll@{}ll}
             \text{minimize}  & \displaystyle\sum_{r \in \Omega} c_r \theta_r& &\\
             \text{subject to}& \displaystyle\sum_{r \in \Omega} a_{i, r} \theta_r = 1 ,&   &\forall i \in N\\
-                             & \displaystyle\sum \theta_r \leq m &&\\\\
+                             & \displaystyle\sum_{r \in \Omega} \theta_r \leq m &&\\\\
                              & \displaystyle \theta_r  \in \{0,1\},  && \forall r \in \Omega
         \end{array}
     \end{equation*}
@@ -54,6 +55,7 @@
     \]
     We let $q_{i,r}$ denote the time it takes to reach customer $i$ in route $r$, where we include accounting for waiting for each customer in the route to be ready (eg the time window beginning).
     This can simply be implemented by observing \texttt{makeQ} from the source code.
+    Observe that we can realize that this constraint can be applied before solving the model, meaning that effectively we can filter out solutions that do not satisfy this constraint.
     The optimal solution yields an objective value of $41$.
 
     \clearpage
@@ -64,44 +66,46 @@
         \begin{array}{ll@{}ll}
             \text{minimize}  & \displaystyle\sum_{r \in \Omega} c_r \theta_r& &\\
             \text{subject to}& \displaystyle\sum_{r \in \Omega} a_{i, r} \theta_r = 1 ,&   &\forall i \in N\\
-            & \displaystyle\sum \theta_r \leq m &&\\
-            & \displaystyle\theta_r \, a_{i,r} \, q_{i,r} \leq l_i, & & \forall i \in N, \, \forall r \in \Omega\\\\
+            & \displaystyle\sum_{r \in \Omega} \theta_r \leq m &&\\\\
             & \displaystyle \theta_r  \geq 0,  && \forall r \in \Omega
         \end{array}
     \end{equation*}
-    The result from the above model yields $m = 7$ which is a violation of the original problem, furthermore an objective value of $36.699\dots$, which in fact is better than the optimal one because of the expanded feasibility polytope.
+    The result from the above model yields $m = 3$ which is not a violation of the original problem, furthermore an objective value of $41$, which is in fact the same as the IP model.
+    Luckily we did reach an integer solution which must mean that our polytope's best value is also the integer solution!
+    I tried to not preprocess the time-window constraint, which yielded an infeasible IP solution such that it needed rounding but luckily the LP solution.
     If we inspect the produced routes:
     \[
     \begin{bmatrix}
-    [0 & 0 & 1 & 1 & 0 & 0 & 0 & 0] \\
-    [0 & 0 & 0 & 0 & 1 & 0 & 0 & 1] \\
-    [1 & 1 & 1 & 0 & 0 & 0 & 0 & 0] \\
-    [1 & 1 & 0 & 1 & 0 & 0 & 0 & 0] \\
-    [0 & 0 & 1 & 0 & 1 & 0 & 0 & 1] \\
-    [0 & 0 & 0 & 0 & 1 & 1 & 1 & 0]
+        [0 & 1 & 0 & 1 & 0 & 0 & 0 & 0]\\
+        [1 & 0 & 1 & 0 & 0 & 0 & 0 & 1]\\
+        [0 & 0 & 0 & 0 & 1 & 1 & 1 & 0]
     \end{bmatrix}
     \]
-    We can observe that this solution is completely incorrect since both $m = 7$ and because of the removed integrality of $\theta_r$, the solution accepts half-taken paths.
-    To prove that a randomized rounding approach does not work, I fed the LP solution into the original IP model which was infeasible.
-    To fix this we must find a nearby integer solution to the found LP solution, which is within the feasibility space of the original constraints, by branching and bounding back to a nearby solution.
-    I set the initial values of all the $\theta_r$ variables to $1$ if they took a non-zero value in the LP relaxed solution, such that the branch and bound algorithm would pick the best nearby solution (also since the LP solution probably has some good IP solutions nearby).
-    I funnily enough got the objective value of $41$, so I am unsure that the solver accounts for initial values.\\\\
-
-    A Lagrangian relaxation might fit better since it is both tighter and does not pose so many questions about solution correctness.
-    The question of which variable is the best to relax is up to the specific scenario, eg if using extra drivers is possible, being late is okay or missing a couple of customers.
-    Assuming the relaxation of the "being late" or time window constraint, for the reason that these constraints might be the most critical to the solution time (because of $N \times \Omega$), one could change the objective function to the following.
+    Which in fact is exactly the same as the IP solution:
     \[
-        f(\lambda) = \displaystyle\sum_{r \in \Omega} c_r \theta_r - \left( \sum_{r \in \Omega} \sum_{i \in N} \lambda \left( \theta_r \, a_{i,r} \, q_{i,r} - l_i \right) \right)
+        \begin{bmatrix}
+            [0 & 1 & 0 & 1 & 0 & 0 & 0 & 0]\\
+            [1 & 0 & 1 & 0 & 0 & 0 & 0 & 1]\\
+            [0 & 0 & 0 & 0 & 1 & 1 & 1 & 0]
+        \end{bmatrix}
     \]
-    And then apply gradient decent by the Held and Karp algorithm to find a good set of $\lambda$ by the dual problem.
+
+    A Lagrangian relaxation might fit better in some more complicated case where LP relaxation would not yield a good enough solution, since lagrangian is both tighter and does not pose so many questions about solution correctness.
+    I will relax the amount of present vehicles.
     \begin{equation*}
         \begin{array}{ll@{}ll}
-            \text{maximize}  & \displaystyle \sum_{r \in \Omega}\lambda_r + m \lambda_2& &\\
-            \text{subject to}& \displaystyle \sum_{i \in N} a_{i, r} \lambda_r  + \lambda_0 \leq c_r, && \forall r \in \Omega\\\\
-            & \displaystyle \theta_r \, a_{i,r} \, q_{i,r} - l_i \leq \lambda & & \forall i \in N ,\, \forall r \in \Omega \\\\
-            & \displaystyle \theta_r   \in \{0,1\},  && \forall r \in \Omega\\
+            f(\lambda) =& \\
+            \text{minimize}  & \displaystyle\sum_{r \in \Omega} c_r \theta_r - \lambda \left( \sum_{r \in \Omega} \theta_r - m \right)& &\\
+            \text{subject to}& \displaystyle\sum_{r \in \Omega} a_{i, r} \theta_r = 1 ,&   &\forall i \in N\\\\
+            & \displaystyle \theta_r  \in \{0,1\},  && \forall r \in \Omega
         \end{array}
     \end{equation*}
+    To solve the problem finding the best $\lambda$ for the lagrangian relaxation, I will use the Held and Karp method.
+    \[
+        \theta = \mu \frac{z_{LR}(\lambda^k) - z}{\sum_i \lambda^2_i}
+    \]
+    The solution found from the gradient decent with $10$ iterations and $\mu=2$ was $\lambda = 0$, the code can be viewed for my solution.
+    The actual solution reached an objective of $41$ with the same three rows as with the IP and LP relaxed models.
     \clearpage
 
     \section*{Task 3}
@@ -110,8 +114,7 @@
         \begin{array}{ll@{}ll}
             \text{minimize}  & \displaystyle\sum_{r \in \Omega} c_r \theta_r& &\\
             \text{subject to}& \displaystyle\sum_{r \in \Omega} a_{i, r} \theta_r = 1 ,&   &\forall i \in N\\
-            & \displaystyle\sum \theta_r \leq m &&\\
-            & \displaystyle\theta_r \, a_{i,r} \, q_{i,r} \leq l_i, & & \forall i \in N, \, \forall r \in \Omega\\\\
+            & \displaystyle\sum \theta_r \leq m &&\\\\
             & \displaystyle \theta_r  \geq 0,  && \forall r \in \Omega
         \end{array}
     \end{equation*}
@@ -121,11 +124,57 @@
         \begin{array}{ll@{}ll}
             \text{minimize}  & \displaystyle\sum_{r \in \hat{\Omega}} c_r \theta_r& &\\
             \text{subject to}& \displaystyle\sum_{r \in \hat{\Omega}} a_{i, r} \theta_r = 1 ,&   &\forall i \in N\\
-            & \displaystyle\sum \theta_r \leq m &&\\
-            & \displaystyle\theta_r \, a_{i,r} \, q_{i,r} \leq l_i, & & \forall i \in N, \, \forall r \in \hat{\Omega}\\\\
+            & \displaystyle\sum \theta_r \leq m &&\\\\
             & \displaystyle \theta_r  \geq 0,  && \forall r \in \hat{\Omega}
         \end{array}
     \end{equation*}
+    We also need to develop a pricing model for evaluating the sub-problem.
+    The sub-problem should minimize the reduced cost, where the negative reduction means that the column we are inspecting will enter the basis.
+    In fact if a non-negative reduced cost is found, the solution is optimal.
+    We must construct the dual to our problem, to determine the reduced cost.
+    The dual variables can be observed by inspecting the primal tableau.
+    In the problem we have two constraints, such that we have two sets of dual variables.
+    One of the constraints is a singleton (the $\leq m$ constraint), which I will denote $\lambda_0$.
+    The second set of constraints is over $i \in N$, so I will denote them $\lambda_{2, r}$.
+    Our reduced cost of a variable $\theta_r$ can be realized by $\hat{c}_r = c_r - \lambda_T A_r$.
+    In fact, constraints will be a valid pathing and with the reduction in cost it becomes a shortest path problem.
+    Every vertex must exactly consume one edge and produce one, or rather every vertex must be the sink of exactly one edge and the source of one.
+    Additionally we use big-M to model capacity constraints, and include the time window constraint.
+    Let $q'_i$ be the function that determines the accumulated time for some vertex $i$, then we can determine the time-window constraint by multiplying with the path activation variable $x_{i,j}$.
+    Finally let $A$ be the set of edges, $V$ be the set of vertices, $Q$ the the max capacity and $x_{i,j}$ be the activation variable of path $i,j$.
+    \begin{equation*}
+        \begin{array}{ll@{}ll}
+            \text{minimize}  & \displaystyle\sum_{i,j \in A} ( c_{i, j} - \lambda_{2,i})x_{i,j} - \lambda_0& &\\
+            \text{subject to}& \displaystyle\sum_{i, k \in A}x_{i,k} = \sum_{k, j \in A}x_{k,j} &&\forall k \in N\\
+            & \displaystyle\sum_{0,j \in A}x_{0,j} = 1 &&\\
+            & \displaystyle\sum_{i,0 \in A}x_{i,0} = 1 &&\\
+            & \displaystyle \left(\sum_{(i, j) \in A} x_{i,j} \right) q'_{i} \leq l_i && \forall i \in V\\\\
+            & \displaystyle y_i + q_j + M x_{i,j} \leq y_j + M & & \forall i,j \in A : j \neq 0\\
+            & \displaystyle 0 \leq y_i \leq Q && \forall i \in N \\
+            & \displaystyle x_{i,j} \in \{0,1\} && \forall i,j \in A
+        \end{array}
+    \end{equation*}
+
+    \clearpage
+    \section*{Task 4}
+    Initially we have the subset $\hat{\Omega} \subset \Omega$.
+    \[
+        \begin{bmatrix}
+            [0 & 0 & 0 & 1 & 0 & 1 & 1 & 0]\\
+            [0 & 0 & 0 & 0 & 1 & 1 & 0 & 1]\\
+            [1 & 0 & 0 & 0 & 1 & 0 & 0 & 0]\\
+            [0 & 1 & 0 & 1 & 1 & 0 & 0 & 0]\\
+            [1 & 0 & 1 & 0 & 0 & 0 & 0 & 0]\\
+            [1 & 1 & 0 & 0 & 0 & 0 & 1 & 0]\\
+            [0 & 1 & 1 & 0 & 0 & 0 & 0 & 1]\\
+            [0 & 1 & 0 & 1 & 0 & 0 & 0 & 0]\\
+            [0 & 0 & 1 & 0 & 1 & 0 & 1 & 0]\\
+            [0 & 0 & 0 & 0 & 1 & 0 & 1 & 1]\\
+            [0 & 1 & 1 & 1 & 0 & 0 & 0 & 0]\\
+            [0 & 0 & 0 & 0 & 0 & 1 & 1 & 1]
+        \end{bmatrix}
+    \]
+
 
 
 
