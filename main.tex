@@ -12,7 +12,7 @@
 \usepackage{stmaryrd}
 \usepackage{caption}
 \usepackage{subcaption}
-
+\usepackage{diagbox}
 \usepackage{cancel}
 \newcommand{\lnec}{\Box}
 
@@ -20,6 +20,7 @@
 \usepackage{amssymb}
 \usepackage{comment}
 \usepackage{minted}
+\usepackage{hyperref}
 \newcommand\mymapsto{\mathrel{\ooalign{$\rightarrow$\cr%
     \kern-.15ex\raise.275ex\hbox{\scalebox{1}[0.522]{$\mid$}}\cr}}}
 \definecolor {processblue}{cmyk}{0.96,0,0,0}
@@ -72,7 +73,7 @@
     \end{equation*}
     The result from the above model yields $m = 3$ which is not a violation of the original problem, furthermore an objective value of $41$, which is in fact the same as the IP model.
     Luckily we did reach an integer solution which must mean that our polytope's best value is also the integer solution!
-    I tried to not preprocess the time-window constraint, which yielded an infeasible IP solution such that it needed rounding but luckily the LP solution.
+    I tried to not preprocess the time-window constraint, which did not yield an IP solution, such that it needed rounding but luckily the LP solution was integer (because of unimodularity?).
     If we inspect the produced routes:
     \[
     \begin{bmatrix}
@@ -106,6 +107,8 @@
     \]
     The solution found from the gradient decent with $10$ iterations and $\mu=2$ was $\lambda = 0$, the code can be viewed for my solution.
     The actual solution reached an objective of $41$ with the same three rows as with the IP and LP relaxed models.
+    Finding the specific sequence of customers to visit is simply a shortest path problem on each vehicle route.
+    Of course the shortest-path algorithm should include the time-window constraint as the cost might not be the same as the travel-time.
     \clearpage
 
     \section*{Task 3}
@@ -135,47 +138,116 @@
     The dual variables can be observed by inspecting the primal tableau.
     In the problem we have two constraints, such that we have two sets of dual variables.
     One of the constraints is a singleton (the $\leq m$ constraint), which I will denote $\lambda_0$.
-    The second set of constraints is over $i \in N$, so I will denote them $\lambda_{2, r}$.
+    The second set of constraints is over $i \in N$, so I will denote them $\lambda_{1, r}$.
     Our reduced cost of a variable $\theta_r$ can be realized by $\hat{c}_r = c_r - \lambda_T A_r$.
     In fact, constraints will be a valid pathing and with the reduction in cost it becomes a shortest path problem.
     Every vertex must exactly consume one edge and produce one, or rather every vertex must be the sink of exactly one edge and the source of one.
     Additionally we use big-M to model capacity constraints, and include the time window constraint.
-    Let $q'_i$ be the function that determines the accumulated time for some vertex $i$, then we can determine the time-window constraint by multiplying with the path activation variable $x_{i,j}$.
-    Finally let $A$ be the set of edges, $V$ be the set of vertices, $Q$ the the max capacity and $x_{i,j}$ be the activation variable of path $i,j$.
+    Let $A$ be the set of edges, $V$ be the set of vertices, $Q$ the the max capacity and $x_{i,j}$ be the activation variable of path $i,j$.
+    Finally let $y_i \in \mathbb{R}$ be the load on the vehicle when leaving vertex $i \in V$.\\\\
+    To express the "path taken" we must accumulate and check all time window constraints for violation.
+    \[
+        \sum_{0, j \in A} x_{0, j} t_{0, j} + \sum_{j, i \in A} x_{j, i} t_{j, i} \dots \sum_{s, z \in A} x_{s, z} t_{s, z} \leq l_z \sum_{s, z \in A} x_{s, z} \,\,\,\,\,\,\, \forall z \in V
+    \]
+    As one might notice, this is not easily expressible, as the amount of sum's should be equal to the length of the path from $0$ to $z$.
+    \begin{enumerate}
+        \item One solution is to make the shortest-path algorithm aware of the domain of the routes, in a sense pre-generating all possible permutations of path's and excluding bad ones.
+        \item\label{enum:test2} Another could be to check the constraint after the problem has been solved, if the constraint is violated then solve it again with the previously chosen path excluded.
+        \item\label{enum:test} A solution could also be to introduce an additional variable like $y$, but for time window's as this can also be viewed as a resource.
+        \item There also exists a polynomial time algorithm to solve this based on labelling in chapter two of \cite{petersen2011shortest}, but seems way out of scope of this assignment.
+    \end{enumerate}
+    I will use \autoref{enum:test}, as it seems the most appropriate (but not simple, that would certainly be \autoref{enum:test2}).
+    To do this I will introduce a new variable $t_i$, which will be the time spent travelling to position $t_i$.
+    $t_i$ should be bounded by $0 \leq t_i \leq l_i$, where $l_i$ is the latest possible time to arrive.
+    This method uses big-M, denoted by $M$, and is formulated such that the solver must assign the time-spent correctly to the variable.
+    Additionally we still need to account for waiting before the customer "opens" in case that the vehicle is too early, which is $max(e_i, t_i)$.
+    We can model this by.
+    \[
+        max(e_j, time_{i,j} + t_i) + Mx_{i,j} \leq t_j + M \,\,\,\, \forall i,j \in A: j \neq 0
+    \]
+    Once again there is a problem, $max$ is not linear thus we must find a way around this.
+    Luckily we are minimizing and want to find the maximum, so we can simply introduce a variable to the model which specifies the time of delivery $j$ given we are coming from $i$.
+    \[
+        \alpha_{i,j} \geq e_j \land \alpha_{i,j} \geq time_{i,j} + t_i \,\,\,\, \forall i,j \in A: j \neq 0
+    \]
+    The solver will pick the smallest value to assign to $\alpha$ that is, the maximum of the two, without compromising the solution quality.
+    Keep in mind that "serving time" can also easily be modelled here if wished by simply adding it to $\alpha$.
+    The time constraint can now be expressed more formally as.
     \begin{equation*}
         \begin{array}{ll@{}ll}
-            \text{minimize}  & \displaystyle\sum_{i,j \in A} ( c_{i, j} - \lambda_{2,i})x_{i,j} - \lambda_0& &\\
-            \text{subject to}& \displaystyle\sum_{i, k \in A}x_{i,k} = \sum_{k, j \in A}x_{k,j} &&\forall k \in N\\
-            & \displaystyle\sum_{0,j \in A}x_{0,j} = 1 &&\\
-            & \displaystyle\sum_{i,0 \in A}x_{i,0} = 1 &&\\
-            & \displaystyle \left(\sum_{(i, j) \in A} x_{i,j} \right) q'_{i} \leq l_i && \forall i \in V\\\\
-            & \displaystyle y_i + q_j + M x_{i,j} \leq y_j + M & & \forall i,j \in A : j \neq 0\\
-            & \displaystyle 0 \leq y_i \leq Q && \forall i \in N \\
-            & \displaystyle x_{i,j} \in \{0,1\} && \forall i,j \in A
+            & \displaystyle\alpha_{i,j} \geq e_j \land \alpha_{i,j} \geq time_{i,j} + t_i &&  \forall i,j \in A: j \neq 0\\
+            & \displaystyle \alpha_{i,j} + Mx_{i,j} \leq t_j + M  && \forall i,j \in A: j \neq 0\\
+            & \displaystyle0 \leq t_i \leq l_i &&  \forall i \in V\\\\
+            & \displaystyle \alpha \in \mathbb{R} &&\\
         \end{array}
     \end{equation*}
+    Since all the other variables will take integer values, the domain of $\alpha$ doesn't matter too much.
+    The problem is as follows.
+    \begin{equation*}
+        \begin{array}{ll@{}ll}
+            \text{minimize}  & \displaystyle\sum_{i,j \in A} ( c_{i, j} - \lambda_{1,i})x_{i,j} - \lambda_0 + \sum_{i,j \in A} \alpha_{i,j}&&\\
+            \text{subject to}& \displaystyle\sum_{i, k \in A}x_{i,k} = \sum_{k, j \in A}x_{k,j} &&\forall k \in N\\
+            & \displaystyle\sum_{0,j \in A}x_{0,j} = 1 &&\\
+            & \displaystyle\sum_{i,0 \in A}x_{i,0} = 1 &&\\\\
+            & \displaystyle\alpha_{i,j} \geq e_j \land \alpha_{i,j} \geq time_{i,j} + t_i &&  \forall i,j \in A: j \neq 0\\
+            & \displaystyle \alpha_{i,j} + Mx_{i,j} \leq t_j + M  && \forall i,j \in A: j \neq 0\\
+            & \displaystyle0 \leq t_i \leq l_i &&  \forall i \in V\\\\
+            & \displaystyle y_i + q_j + M x_{i,j} \leq y_j + M & & \forall i,j \in A : j \neq 0\\
+            & \displaystyle 0 \leq y_i \leq Q && \forall i \in N \\\\
+            & \displaystyle x_{i,j} \in \{0,1\} && \forall i,j \in A\\
+            & \displaystyle \alpha_{i,j} \in \mathbb{R} && \forall i,j \in A
+        \end{array}
+    \end{equation*}
+    Notice that we cannot preemptively remove path's to be checked based on time windows, like before.
+    This is because the shortest path algorithm works different in that the permutation of visiting order dictates when we arrive, thus we must include the time-window constraint.
 
     \clearpage
     \section*{Task 4}
     Initially we have the subset $\hat{\Omega} \subset \Omega$.
     \[
-        \begin{bmatrix}
-            [0 & 0 & 0 & 1 & 0 & 1 & 1 & 0]\\
-            [0 & 0 & 0 & 0 & 1 & 1 & 0 & 1]\\
-            [1 & 0 & 0 & 0 & 1 & 0 & 0 & 0]\\
-            [0 & 1 & 0 & 1 & 1 & 0 & 0 & 0]\\
-            [1 & 0 & 1 & 0 & 0 & 0 & 0 & 0]\\
-            [1 & 1 & 0 & 0 & 0 & 0 & 1 & 0]\\
-            [0 & 1 & 1 & 0 & 0 & 0 & 0 & 1]\\
-            [0 & 1 & 0 & 1 & 0 & 0 & 0 & 0]\\
-            [0 & 0 & 1 & 0 & 1 & 0 & 1 & 0]\\
-            [0 & 0 & 0 & 0 & 1 & 0 & 1 & 1]\\
-            [0 & 1 & 1 & 1 & 0 & 0 & 0 & 0]\\
-            [0 & 0 & 0 & 0 & 0 & 1 & 1 & 1]
-        \end{bmatrix}
+        \begin{tabular}{ |c| c|c|c|c|c|c|c|c | }
+            \hline
+            $r_r$ &     $\hat{\Omega}_r$    &  $c_r$ \\
+            \hline
+            $r_0$ &     [0 0 0 1 0 1 1 0]   &  $15$ \\
+            $r_1$ &     [0 0 0 0 1 1 0 1]   &  $13$ \\
+            $r_2$ &     [1 0 0 0 1 0 0 0]   &  $22$ \\
+            $r_3$ &     [0 1 0 1 1 0 0 0]   &  $17$ \\
+            $r_4$ &     [1 0 1 0 0 0 0 0]   &  $15$ \\
+            $r_5$ &     [1 1 0 0 0 0 1 0]   &  $22$ \\
+            $r_6$ &     [0 1 1 0 0 0 0 1]   &  $18$ \\
+            $r_7$ &     [0 1 0 1 0 0 0 0]   &  $10$ \\
+            $r_8$ &     [0 0 1 0 1 0 1 0]   &  $15$ \\
+            $r_9$ &     [0 0 0 0 1 0 1 1]   &  $13$ \\
+            $r_{10}$ &  [0 1 1 1 0 0 0 0]   &  $17$ \\
+            $r_{11}$ &  [0 0 0 0 0 1 1 1]   &  $13$ \\
+            \hline
+        \end{tabular}
+    \]
+    And the solution values after the first iteration, the first $r$ rows are $\lambda_1$'s and the final $\leq 3$ row is $\lambda_0$.
+    \[
+        \begin{tabular}{ |c| c|c|c|c|c|c|c|c|c|c|c|c|c|c | }
+            \hline
+            \backslashbox{$\lambda$}{$c_r$} &  15 & 13 & 22 & 17 & 15 & 22 & 18 & 10 & 15 & 13 & 17 & 13 & \\
+            \hline
+            $???$ & 0 & 0 & 1 & 0 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & = 1\\
+            $???$ & 0 & 0 & 0 & 1 & 0 & 1 & 1 & 1 & 0 & 0 & 1 & 0 & = 1\\
+            $???$ & 0 & 0 & 0 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & = 1\\
+            $???$ & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & = 1\\
+            $???$ & 0 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 1 & 1 & 0 & 0 & = 1\\
+            $???$ & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & = 1\\
+            $???$ & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 1 & 0 & 1 & = 1\\
+            $???$ & 0 & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & 1 & = 1\\
+            $???$ & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & $\leq $ 3\\
+            \hline
+            $\theta$ & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & \\
+            \hline
+        \end{tabular}
     \]
 
 
-
+    \clearpage
+    \bibliographystyle{ieeetr}
+    \bibliography{bibl}
 
 \end{document}
