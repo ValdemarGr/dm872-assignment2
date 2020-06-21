@@ -181,17 +181,16 @@
             & \displaystyle \alpha \in \mathbb{R} &&\\
         \end{array}
     \end{equation*}
-    Since all the other variables will take integer values, the domain of $\alpha$ doesn't matter too much.
     The problem is as follows.
     \begin{equation*}
         \begin{array}{ll@{}ll}
-            \text{minimize}  & \displaystyle\sum_{i,j \in A} ( c_{i, j} - \lambda_{1,i})x_{i,j} - \lambda_0 + \sum_{i,j \in A} \alpha_{i,j}&&\\
+            \text{minimize}  & \displaystyle\sum_{i,j \in A} ( c_{i, j} - \lambda_{1,i})x_{i,j} - \lambda_0&&\\
             \text{subject to}& \displaystyle\sum_{i, k \in A}x_{i,k} = \sum_{k, j \in A}x_{k,j} &&\forall k \in N\\
             & \displaystyle\sum_{0,j \in A}x_{0,j} = 1 &&\\
             & \displaystyle\sum_{i,0 \in A}x_{i,0} = 1 &&\\\\
             & \displaystyle\alpha_{i,j} \geq e_j \land \alpha_{i,j} \geq time_{i,j} + t_i &&  \forall i,j \in A: j \neq 0\\
             & \displaystyle \alpha_{i,j} + Mx_{i,j} \leq t_j + M  && \forall i,j \in A: j \neq 0\\
-            & \displaystyle0 \leq t_i \leq l_i &&  \forall i \in V\\\\
+            & \displaystyle0 \leq t_i \leq l_i &&  \forall i \in V \backslash \{ 0 \}\\\\
             & \displaystyle y_i + q_j + M x_{i,j} \leq y_j + M & & \forall i,j \in A : j \neq 0\\
             & \displaystyle 0 \leq y_i \leq Q && \forall i \in N \\\\
             & \displaystyle x_{i,j} \in \{0,1\} && \forall i,j \in A\\
@@ -202,7 +201,7 @@
     This is because the shortest path algorithm works different in that the permutation of visiting order dictates when we arrive, thus we must include the time-window constraint.
 
     \clearpage
-    \section*{Task 4}
+    \section*{Task 5}
     Initially we have the subset $\hat{\Omega} \subset \Omega$.
     \[
         \begin{tabular}{ |c| c|c|c|c|c|c|c|c | }
@@ -226,24 +225,47 @@
     \]
     And the solution values after the first iteration, the first $r$ rows are $\lambda_1$'s and the final $\leq 3$ row is $\lambda_0$.
     \[
+        \hspace{-1.5cm}
         \begin{tabular}{ |c| c|c|c|c|c|c|c|c|c|c|c|c|c|c | }
             \hline
             \backslashbox{$\lambda$}{$c_r$} &  15 & 13 & 22 & 17 & 15 & 22 & 18 & 10 & 15 & 13 & 17 & 13 & \\
             \hline
-            $???$ & 0 & 0 & 1 & 0 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & = 1\\
-            $???$ & 0 & 0 & 0 & 1 & 0 & 1 & 1 & 1 & 0 & 0 & 1 & 0 & = 1\\
-            $???$ & 0 & 0 & 0 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & = 1\\
-            $???$ & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & = 1\\
-            $???$ & 0 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 1 & 1 & 0 & 0 & = 1\\
-            $???$ & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & = 1\\
-            $???$ & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 1 & 0 & 1 & = 1\\
-            $???$ & 0 & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & 1 & = 1\\
-            $???$ & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & $\leq $ 3\\
+            $13.33$ & 0 & 0 & 1 & 0 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & = 1\\
+            $7.66$ & 0 & 0 & 0 & 1 & 0 & 1 & 1 & 1 & 0 & 0 & 1 & 0 & = 1\\
+            $7.0$ & 0 & 0 & 0 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & = 1\\
+            $7.66$ & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & = 1\\
+            $6.99$ & 0 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 1 & 1 & 0 & 0 & = 1\\
+            $6.33$ & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & = 1\\
+            $6.33$ & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 1 & 0 & 1 & = 1\\
+            $5.0$ & 0 & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & 1 & = 1\\
+            $-5.33$ & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & $\leq $ 3\\
             \hline
-            $\theta$ & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & ? & \\
+            $\theta$ & 0.33 & 0.66 & 0.0 & 0.0 & 0.66 & 0.33 & 0.0 & 0.33 & 0.0 & 0.33 & 0.33 & 0.0 & \\
             \hline
         \end{tabular}
     \]
+    First I introduce the route $[0, 3, 4, 6, 0]$, or rather $[0,0,1,1,0,1,0,0]$, which yields an objective value of $-4.33$.
+    Moreover the algorithm will keep solving the shortest path sub-problem and pick the best reduced cost to approach the point of primal and dual feasibility.
+    The final objective is $37$ with a fractional solution of $\theta_r$.\\
+    \[
+        \begin{tabular}{ |c|c| }
+            \hline
+            $\theta_{11}$ & 0.5\\
+            $\theta_{12}$ & 1.0\\
+            $\theta_{19}$ & 0.5\\
+            $\theta_{20}$ & 0.5\\
+            $\theta_{30}$ & 0.5\\
+            \hline
+        \end{tabular}
+    \]
+    Which is quite odd, when the linear relaxation and lagrangian gave optimal integer solutions.
+
+
+
+
+
+
+
 
 
     \clearpage
