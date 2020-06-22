@@ -15,7 +15,7 @@
 \usepackage{diagbox}
 \usepackage{cancel}
 \newcommand{\lnec}{\Box}
-
+\usepackage{color, colortbl}
 \usepackage[edges]{forest}
 \usepackage{amssymb}
 \usepackage{comment}
@@ -33,12 +33,13 @@
 
     \maketitle
     It should preemptively be noted that the \texttt{ipynb} notebook supplied along side with the code shows results and the way the code was developed.
+    It should also be noted that in the assignments where the data-set was not mentioned, I generated the combinations myself.
+    I in addition to taking a subset of the provided data, generated the combinations myself for assignments where techniques such as column generation needs "new columns" to add.
     
     \clearpage
 
     \section*{Task 1}
     The (capacitated vehicle routing problem) CVRP can be formulated as a set-partitioning problem as follows.
-
     \begin{equation*}
         \begin{array}{ll@{}ll}
             \text{minimize}  & \displaystyle\sum_{r \in \Omega} c_r \theta_r& &\\
@@ -47,7 +48,6 @@
                              & \displaystyle \theta_r  \in \{0,1\},  && \forall r \in \Omega
         \end{array}
     \end{equation*}
-    
     Compared to the tasked problem we need a couple of things to complete the model.
     We implicitly only allow routes that satisfy the capacity limit by only allowing such sets in the problem.\\\\
     The "additional" aspect is the time windows, which we can model quite easily by the following constraint.
@@ -59,7 +59,6 @@
     Observe that we can realize that this constraint can be applied before solving the model, meaning that effectively we can filter out solutions that do not satisfy this constraint.
     The optimal solution yields an objective value of $41$.
 
-    \clearpage
     \section*{Task 2}
     By introducing linear relaxation we can find a good, but not necessarily optimal solution.
     We perform linear relaxation by relaxing the binary constraint, such that our model becomes.
@@ -71,6 +70,7 @@
             & \displaystyle \theta_r  \geq 0,  && \forall r \in \Omega
         \end{array}
     \end{equation*}
+    Running this on all combinations of the possible routes.
     The result from the above model yields $m = 3$ which is not a violation of the original problem, furthermore an objective value of $41$, which is in fact the same as the IP model.
     Luckily we did reach an integer solution which must mean that our polytope's best value is also the integer solution!
     I tried to not preprocess the time-window constraint, which did not yield an IP solution, such that it needed rounding but luckily the LP solution was integer (because of unimodularity?).
@@ -89,6 +89,20 @@
             [1 & 0 & 1 & 0 & 0 & 0 & 0 & 1]\\
             [0 & 0 & 0 & 0 & 1 & 1 & 1 & 0]
         \end{bmatrix}
+    \]
+    I also ran this on the supplied data, which did not yield an integer solution.
+    \[
+        \begin{tabular}{ |c|c| }
+            \hline
+            $\theta_{0}$ & 0.33 \\
+            $\theta_{1}$ & 0.66 \\
+            $\theta_{4}$ & 0.66 \\
+            $\theta_{5}$ & 0.33 \\
+            $\theta_{7}$ & 0.33 \\
+            $\theta_{9}$ & 0.33 \\
+            $\theta_{10}$ & 0.33 \\
+            \hline
+        \end{tabular}
     \]
 
     A Lagrangian relaxation might fit better in some more complicated case where LP relaxation would not yield a good enough solution, since lagrangian is both tighter and does not pose so many questions about solution correctness.
@@ -109,7 +123,26 @@
     The actual solution reached an objective of $41$ with the same three rows as with the IP and LP relaxed models.
     Finding the specific sequence of customers to visit is simply a shortest path problem on each vehicle route.
     Of course the shortest-path algorithm should include the time-window constraint as the cost might not be the same as the travel-time.
-    \clearpage
+
+    This solution is not really interesting and just proves again the point that the vehicle limit constraint doesn't matter that much, since both the LP relaxation picks it and the lagrangian relaxation of the vehicle constraint.
+    We can also see this since the gradient decent picks $\lambda = 0$, which indicates that it doesn't need this term to find a good feasible solution.
+    In fact when I remove the vehicle constraint altogether the solution is still the same.
+
+    Therefore I also present a model where the other constraint of all customers being active as the relaxed constraint.
+    \begin{equation*}
+        \begin{array}{ll@{}ll}
+            \text{minimize}  & \displaystyle\sum_{r \in \Omega} c_r \theta_r + \sum_{i \in N} \lambda(\sum_{r \in \Omega} a_{i, r} \theta_r - 1)& &\\
+            \text{subject to}&  \displaystyle\sum_{r \in \Omega} \theta_r \leq m &   &\\\\
+            & \displaystyle \theta_r  \in \{0,1\},  && \forall r \in \Omega
+        \end{array}
+    \end{equation*}
+    Clearly the solver has a much less constrained solution space to pick from.
+    The heuristic solution yields $-10560$ as the objective value, and a $\lambda=105$ after $10$ iterations and $\mu = 2$.
+    Clearly the solution is completely invalid, naturally this must be because the solver is now instructed in simply finding a solution that minimizes cost and minimizes the amount of active customers.
+    From increasing the iterations it seems like it will just keep growing until infinity.
+
+    On either my generated dataset and the supplied it keeps growing the constraint to infinity.
+
 
     \section*{Task 3}
     Like in task 2, the master problem is actually just the linear relaxation of the original problem.
@@ -199,27 +232,132 @@
     \end{equation*}
     Notice that we cannot preemptively remove path's to be checked based on time windows, like before.
     This is because the shortest path algorithm works different in that the permutation of visiting order dictates when we arrive, thus we must include the time-window constraint.
+    \section*{Task 4}
+    I am unsure if the by what means we are to generate columns, by hand.
+    So I will just assume to use a subset of the provided dataset for this task as the first columns.
+    Initially $\hat{\Omega} = \{ \theta_2, \theta_3, \theta_4, \theta_{11} \}$.
+    \[
+        \begin{tabular}{ |c c c c c | }
+            \hline
+            22 $\theta_2$ & + 18 $\theta_3$ & +15 $\theta_4$ & +12 $\theta_{11}$ &\\
+            \hline
+            $\theta_2$ &                 & +$\theta_4$ &          &  = 1 \\
+             &               $\theta_3$ &  &                      &  = 1 \\
+             &                           & $\theta_4$ &           &  = 1 \\
+             &               $\theta_3$ &  &                      &  = 1 \\
+            $\theta_2$ &    + $\theta_3$ &  &                     &  = 1 \\
+             &                           &  &      $\theta_{11}$    &  = 1 \\
+             &                           &  &      $\theta_{11}$    &  = 1 \\
+             &                           &  &      $\theta_{11}$    &  = 1 \\
+            $\theta_2$ & + $\theta_3$ & +$\theta_4$ & $\theta_{11}$ & $\leq 3$ \\
+            $\theta_2$ & , $\theta_3$ & ,$\theta_4$ & $\theta_{11}$ & $\geq 0$ \\
+            \hline
+        \end{tabular}
+    \]
+    Then we solve and look at what duals are violated.
+    We have that.
+    \begin{equation*}
+        \begin{array}{c}
+            \theta_{2} = 0.0\\
+            \theta_{3} = 1.0\\
+            \theta_{4} = 1.0\\
+            \theta_{11} = 1.0\\
+            cost = 45.0\\
+            \lambda_{1,r} = (0.0,18.0,15.0,0.0,0.0,12.0,0.0,0.0)\\
+            \lambda_0 = 0.0
+        \end{array}
+    \end{equation*}
+    Red are violated constraints, and blue are feasible constraints which are not violated.
+    The tables can be found in the appendix.
+    So here we can see that constraint $6,7$ and $10$ are violated, so we introduce one into the problem, lets say $7$.
+    \begin{equation*}
+        \begin{array}{c}
+            cost = 45.0\\
+            \lambda_{1,r} = (0.0,0.0,15.0,0.0,18.0,12.0,0.0,0.0)\\
+            \lambda_0 = 0.0
+        \end{array}
+    \end{equation*}
+    Now $1,8,9$ and $10$ are violated, I will add $8$.
+    \begin{equation*}
+        \begin{array}{c}
+            cost = 45.0\\
+            \lambda_{1,r} = (0.0,0.0,15.0,0.0,18.0,30.0,-18.0,0.0)\\
+            \lambda_0 = 0.0
+        \end{array}
+    \end{equation*}
+    $1$ and $10$ are violated, I will add $10$.
+    \begin{equation*}
+        \begin{array}{c}
+            cost = 45.0\\
+            \lambda_{1,r} = (4.0,0.0,11.0,0.0,18.0,26.0,-14.0,0.0)\\
+            \lambda_0 = 0.0
+        \end{array}
+    \end{equation*}
+    $1$ is violated, so I will add it.
+    \begin{equation*}
+        \begin{array}{c}
+            cost = 45.0\\
+            \lambda_{1,r} = (16.0,0.0,1.0,12.0,8.0,0.0,8.0,6.0)\\
+            \lambda_0 = -2.0
+        \end{array}
+    \end{equation*}
+    $0$ and $9$ are violated, I will add $9$.
+    \begin{equation*}
+        \begin{array}{c}
+            cost = 45.0\\
+            \lambda_{1,r} = (16.0,0.0,1.0,12.0,8.0,9.0,8.0,-3.0)\\
+            \lambda_0 = -2.0
+        \end{array}
+    \end{equation*}
+    $0$ is violated, add it.
+    \begin{equation*}
+        \begin{array}{c}
+            cost = 45.0\\
+            \lambda_{1,r} = (16.0,12.0,1.0,0.0,8.0,9.0,8.0,-3.0)\\
+            \lambda_0 = -2.0
+        \end{array}
+    \end{equation*}
+    $5$ violated, add it.
+    \begin{equation*}
+        \begin{array}{c}
+            \theta_{0} = 0.33\\
+            \theta_{1} = 0.67\\
+            \theta_{2} = 0.00\\
+            \theta_{3} = 0.00\\
+            \theta_{4} = 0.67\\
+            \theta_{5} = 0.33\\
+            \theta_{7} = 0.33\\
+            \theta_{8} = 0.00\\
+            \theta_{9} = 0.33\\
+            \theta_{10} = 0.33\\
+            \theta_{11} = 0.00\\
+            cost = 41.67\\
+            \lambda_{1,r} = (12.00,5.33,3.00,4.67,4.67,5.67,4.67,1.67)\\
+            \lambda_0 = 0.0
+        \end{array}
+    \end{equation*}
 
-    \clearpage
     \section*{Task 5}
+    I will first give a quick description of what the code does and then give a short example.
+    First the \texttt{column\_generation\_RMP} function is invoked, which keeps iterating, since an internal return will stop the loop.
+    In every iteration I solve the master problem, and find the duals.
+    I then solve the pricing problem with these duals on every addable column until there are no more columns remaining, adding each negative objective value result to a list.
+    After going through all these sub-problems, I then go through the generated sub-problems and pick the one with the most reduced cost.
+    If no sub-problems with reduced cost was found OR there are no more columns to add, I return the restricted master solution, as it is the optimal.
+    Keep in mind much of the code is simply accounting for things such as "off by 1" and loop base-cases.
+    \\\\
+    Since the lagrangian solution was very unfriendly, I will use the result of the LP relaxed solution of the initially supplied dataset.
+    The solutions from this were not integer, so I will randomly round and have the initial routes $1,3,4,7$.
     Initially we have the subset $\hat{\Omega} \subset \Omega$.
     \[
         \begin{tabular}{ |c| c|c|c|c|c|c|c|c | }
             \hline
             $r_r$ &     $\hat{\Omega}_r$    &  $c_r$ \\
             \hline
-            $r_0$ &     [0 0 0 1 0 1 1 0]   &  $15$ \\
-            $r_1$ &     [0 0 0 0 1 1 0 1]   &  $13$ \\
-            $r_2$ &     [1 0 0 0 1 0 0 0]   &  $22$ \\
-            $r_3$ &     [0 1 0 1 1 0 0 0]   &  $17$ \\
-            $r_4$ &     [1 0 1 0 0 0 0 0]   &  $15$ \\
-            $r_5$ &     [1 1 0 0 0 0 1 0]   &  $22$ \\
-            $r_6$ &     [0 1 1 0 0 0 0 1]   &  $18$ \\
-            $r_7$ &     [0 1 0 1 0 0 0 0]   &  $10$ \\
-            $r_8$ &     [0 0 1 0 1 0 1 0]   &  $15$ \\
-            $r_9$ &     [0 0 0 0 1 0 1 1]   &  $13$ \\
-            $r_{10}$ &  [0 1 1 1 0 0 0 0]   &  $17$ \\
-            $r_{11}$ &  [0 0 0 0 0 1 1 1]   &  $13$ \\
+            $r_1$ &     [0 0 0 0 1 1 0 1]   &  $12.0$ \\
+            $r_3$ &     [0 1 0 1 1 0 0 0]   &  $18.0$ \\
+            $r_4$ &     [1 0 1 0 0 0 0 0]   &  $15.0$ \\
+            $r_7$ &     [0 1 0 1 0 0 0 0]   &  $10.0$ \\
             \hline
         \end{tabular}
     \]
@@ -228,48 +366,228 @@
         \hspace{-1.5cm}
         \begin{tabular}{ |c| c|c|c|c|c|c|c|c|c|c|c|c|c|c | }
             \hline
-            \backslashbox{$\lambda$}{$c_r$} &  15 & 13 & 22 & 17 & 15 & 22 & 18 & 10 & 15 & 13 & 17 & 13 & \\
+            \backslashbox{$\lambda$}{$c_r$} &  12 & 18 & 5 & 10& \\
             \hline
-            $13.33$ & 0 & 0 & 1 & 0 & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & = 1\\
-            $7.66$ & 0 & 0 & 0 & 1 & 0 & 1 & 1 & 1 & 0 & 0 & 1 & 0 & = 1\\
-            $7.0$ & 0 & 0 & 0 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & 1 & 0 & = 1\\
-            $7.66$ & 1 & 0 & 0 & 1 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & = 1\\
-            $6.99$ & 0 & 1 & 1 & 1 & 0 & 0 & 0 & 0 & 1 & 1 & 0 & 0 & = 1\\
-            $6.33$ & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & = 1\\
-            $6.33$ & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 1 & 0 & 1 & = 1\\
-            $5.0$ & 0 & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 & 1 & = 1\\
-            $-5.33$ & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & $\leq $ 3\\
+            $15.0$ & 0 & 0 & 1 & 0  & = 1\\
+            $17.0$ & 0 & 1 & 0 & 1 & = 1\\
+            $0.0$ & 0 & 0 & 1 & 0 & = 1\\
+            $0.0$ & 0 & 1 & 0 & 1 & = 1\\
+            $0.0$ & 1 & 1 & 0 & 0 & = 1\\
+            $0.0$ & 1 & 0 & 0 & 0 & = 1\\
+            $13.0$ & 0 & 0 & 0 & 0 & = 1\\
+            $0.0$ & 1 & 0 & 0 & 0 & = 1\\
+            $0.0$ & 1 & 1 & 1 & 1 & $\leq $ 3\\
             \hline
-            $\theta$ & 0.33 & 0.66 & 0.0 & 0.0 & 0.66 & 0.33 & 0.0 & 0.33 & 0.0 & 0.33 & 0.33 & 0.0 & \\
+            $\theta$ & 1 & 0 & 1 & 1 & \\
             \hline
         \end{tabular}
     \]
-    First I introduce the route $[0, 3, 4, 6, 0]$, or rather $[0,0,1,1,0,1,0,0]$, which yields an objective value of $-4.33$.
+    First I introduce the route $[1, 1, 0, 0, 0, 0, 1, 0]$, which yields a reduction in cost of $-17.0$.
     Moreover the algorithm will keep solving the shortest path sub-problem and pick the best reduced cost to approach the point of primal and dual feasibility.
-    The final objective is $37$ with a fractional solution of $\theta_r$.\\
-    \[
-        \begin{tabular}{ |c|c| }
-            \hline
-            $\theta_{11}$ & 0.5\\
-            $\theta_{12}$ & 1.0\\
-            $\theta_{19}$ & 0.5\\
-            $\theta_{20}$ & 0.5\\
-            $\theta_{30}$ & 0.5\\
-            \hline
-        \end{tabular}
-    \]
-    Which is quite odd, when the linear relaxation and lagrangian gave optimal integer solutions.
 
+    \section*{Task 6}
 
-
-
-
-
-
-
-
-    \clearpage
     \bibliographystyle{ieeetr}
     \bibliography{bibl}
+
+    \clearpage
+    \section*{Appendix}
+    \subsection{Tables}
+    \[
+        \begin{tabular}{ |c|c c c c c c c c c c| }
+            \hline
+            & +$\lambda_{1,0}$ & $\lambda_{1,1}$ & +$\lambda_{1,2}$ & +$\lambda_{1,3}$ & +$\lambda_{1,4}$ & +$\lambda_{1,5}$ & +$\lambda_{1,6}$ & +$\lambda_{1,7}$  & +$\lambda_{0}$ &  \\
+            \rowcolor{blue!20}
+            $\theta_{0}$ && & & 0.0 && 12.0 &0.0 && 0.0& $\leq 15.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{1}$ && & & & 0.0 &12.0 && 0.0 &0.0& $\leq 12.0$ \\
+            $\theta_{2}$ &0.0 && & & 0.0 && & & 0.0& $\leq 22.0$ \\
+            $\theta_{3}$ && 18.0 && 0.0 &0.0 && & & 0.0& $\leq 18.0$ \\
+            $\theta_{4}$ &0.0 && 15.0 && & & & & 0.0& $\leq 15.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{5}$ &0.0 &18.0 && & & & 0.0 && 0.0& $\leq 22.0$ \\
+            \rowcolor{red!20}
+            $\theta_{6}$ && 18.0 &15.0 && & & & 0.0 &0.0& $\leq 18.0$ \\
+            \rowcolor{red!20}
+            $\theta_{7}$ && 18.0 && 0.0 && & & & 0.0& $\leq 10.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{8}$ && & 15.0 && 0.0 && 0.0 && 0.0& $\leq 15.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{9}$ && & & & 0.0 && 0.0 &0.0 &0.0& $\leq 11.0$ \\
+            \rowcolor{red!20}
+            $\theta_{10}$ && 18.0 &15.0 &0.0 && & & & 0.0& $\leq 13.0$ \\
+            $\theta_{11}$ && & & & & 12.0 &0.0 &0.0 &0.0& $\leq 12.0$ \\
+            && & & & &  && & 0.0 & $\leq 0.0$ \\
+            \hline
+        \end{tabular}
+    \]
+    \[
+        \begin{tabular}{ |c|c c c c c c c c c c| }
+            \hline
+            & +$\lambda_{1,0}$ & $\lambda_{1,1}$ & +$\lambda_{1,2}$ & +$\lambda_{1,3}$ & +$\lambda_{1,4}$ & +$\lambda_{1,5}$ & +$\lambda_{1,6}$ & +$\lambda_{1,7}$  & +$\lambda_{0}$ &  \\
+            \rowcolor{blue!20}
+            $\theta_{0}$ && & & 0.0 && 12.0 &0.0 && 0.0& $\leq 15.0$ \\
+            \rowcolor{red!20}
+            $\theta_{1}$ && & & & 18.0 &12.0 && 0.0 &0.0& $\leq 12.0$ \\
+            $\theta_{2}$ &0.0 && & & 18.0 && & & 0.0& $\leq 22.0$ \\
+            $\theta_{3}$ && 0.0 && 0.0 &18.0 && & & 0.0& $\leq 18.0$ \\
+            $\theta_{4}$ &0.0 && 15.0 && & & & & 0.0& $\leq 15.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{5}$ &0.0 &0.0 && & & & 0.0 && 0.0& $\leq 22.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{6}$ && 0.0 &15.0 && & & & 0.0 &0.0& $\leq 18.0$ \\
+            $\theta_{7}$ && 0.0 && 0.0 && & & & 0.0& $\leq 10.0$ \\
+            \rowcolor{red!20}
+            $\theta_{8}$ && & 15.0 && 18.0 && 0.0 && 0.0& $\leq 15.0$ \\
+            \rowcolor{red!20}
+            $\theta_{9}$ && & & & 18.0 && 0.0 &0.0 &0.0& $\leq 11.0$ \\
+            \rowcolor{red!20}
+            $\theta_{10}$ && 0.0 &15.0 &0.0 && & & & 0.0& $\leq 13.0$ \\
+            $\theta_{11}$ && & & & & 12.0 &0.0 &0.0 &0.0& $\leq 12.0$ \\
+            && & & & &  && & 0.0 & $\leq 0.0$ \\
+            \hline
+        \end{tabular}
+    \]
+    \[
+        \begin{tabular}{ |c|c c c c c c c c c c| }
+            \hline
+            & +$\lambda_{1,0}$ & $\lambda_{1,1}$ & +$\lambda_{1,2}$ & +$\lambda_{1,3}$ & +$\lambda_{1,4}$ & +$\lambda_{1,5}$ & +$\lambda_{1,6}$ & +$\lambda_{1,7}$  & +$\lambda_{0}$ &  \\
+            \rowcolor{blue!20}
+            $\theta_{0}$ && & & 0.0 && 30.0 &-18.0 && 0.0& $\leq 15.0$ \\
+            \rowcolor{red!20}
+            $\theta_{1}$ && & & & 18.0 &30.0 && 0.0 &0.0& $\leq 12.0$ \\
+            $\theta_{2}$ &0.0 && & & 18.0 && & & 0.0& $\leq 22.0$ \\
+            $\theta_{3}$ && 0.0 && 0.0 &18.0 && & & 0.0& $\leq 18.0$ \\
+            $\theta_{4}$ &0.0 && 15.0 && & & & & 0.0& $\leq 15.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{5}$ &0.0 &0.0 && & & & -18.0 && 0.0& $\leq 22.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{6}$ && 0.0 &15.0 && & & & 0.0 &0.0& $\leq 18.0$ \\
+            $\theta_{7}$ && 0.0 && 0.0 && & & & 0.0& $\leq 10.0$ \\
+            $\theta_{8}$ && & 15.0 && 18.0 && -18.0 && 0.0& $\leq 15.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{9}$ && & & & 18.0 && -18.0 &0.0 &0.0& $\leq 11.0$ \\
+            \rowcolor{red!20}
+            $\theta_{10}$ && 0.0 &15.0 &0.0 && & & & 0.0& $\leq 13.0$ \\
+            $\theta_{11}$ && & & & & 30.0 &-18.0 &0.0 &0.0& $\leq 12.0$ \\
+            && & & & &  && & 0.0 & $\leq 0.0$ \\
+            \hline
+        \end{tabular}
+    \]
+    \[
+        \begin{tabular}{ |c|c c c c c c c c c c| }
+            \hline
+            & +$\lambda_{1,0}$ & $\lambda_{1,1}$ & +$\lambda_{1,2}$ & +$\lambda_{1,3}$ & +$\lambda_{1,4}$ & +$\lambda_{1,5}$ & +$\lambda_{1,6}$ & +$\lambda_{1,7}$  & +$\lambda_{0}$ &  \\
+            \rowcolor{blue!20}
+            $\theta_{0}$ && & & 0.0 && 26.0 &-14.0 && 0.0& $\leq 15.0$ \\
+            \rowcolor{red!20}
+            $\theta_{1}$ && & & & 18.0 &26.0 && 0.0 &0.0& $\leq 12.0$ \\
+            $\theta_{2}$ &4.0 && & & 18.0 && & & 0.0& $\leq 22.0$ \\
+            $\theta_{3}$ && 0.0 && 0.0 &18.0 && & & 0.0& $\leq 18.0$ \\
+            $\theta_{4}$ &4.0 && 11.0 && & & & & 0.0& $\leq 15.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{5}$ &4.0 &0.0 && & & & -14.0 && 0.0& $\leq 22.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{6}$ && 0.0 &11.0 && & & & 0.0 &0.0& $\leq 18.0$ \\
+            $\theta_{7}$ && 0.0 && 0.0 && & & & 0.0& $\leq 10.0$ \\
+            $\theta_{8}$ && & 11.0 && 18.0 && -14.0 && 0.0& $\leq 15.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{9}$ && & & & 18.0 && -14.0 &0.0 &0.0& $\leq 11.0$ \\
+            $\theta_{10}$ && 0.0 &11.0 &0.0 && & & & 0.0& $\leq 13.0$ \\
+            $\theta_{11}$ && & & & & 26.0 &-14.0 &0.0 &0.0& $\leq 12.0$ \\
+            && & & & &  && & 0.0 & $\leq 0.0$ \\
+            \hline
+        \end{tabular}
+    \]
+    \[
+        \begin{tabular}{ |c|c c c c c c c c c c| }
+            \hline
+            & +$\lambda_{1,0}$ & $\lambda_{1,1}$ & +$\lambda_{1,2}$ & +$\lambda_{1,3}$ & +$\lambda_{1,4}$ & +$\lambda_{1,5}$ & +$\lambda_{1,6}$ & +$\lambda_{1,7}$  & +$\lambda_{0}$ &  \\
+            \rowcolor{red!20}
+            $\theta_{0}$ && & & 12.0 && 0.0 &8.0 && -2.0& $\leq 15.0$ \\
+            $\theta_{1}$ && & & & 8.0 &0.0 && 6.0 &-2.0& $\leq 12.0$ \\
+            $\theta_{2}$ &16.0 && & & 8.0 && & & -2.0& $\leq 22.0$ \\
+            $\theta_{3}$ && 0.0 && 12.0 &8.0 && & & -2.0& $\leq 18.0$ \\
+            $\theta_{4}$ &16.0 && 1.0 && & & & & -2.0& $\leq 15.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{5}$ &16.0 &0.0 && & & & 8.0 && -2.0& $\leq 22.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{6}$ && 0.0 &1.0 && & & & 6.0 &-2.0& $\leq 18.0$ \\
+            $\theta_{7}$ && 0.0 && 12.0 && & & & -2.0& $\leq 10.0$ \\
+            $\theta_{8}$ && & 1.0 && 8.0 && 8.0 && -2.0& $\leq 15.0$ \\
+            \rowcolor{red!20}
+            $\theta_{9}$ && & & & 8.0 && 8.0 &6.0 &-2.0& $\leq 11.0$ \\
+            $\theta_{10}$ && 0.0 &1.0 &12.0 && & & & -2.0& $\leq 13.0$ \\
+            $\theta_{11}$ && & & & & 0.0 &8.0 &6.0 &-2.0& $\leq 12.0$ \\
+            && & & & &  && & -2.0 & $\leq 0.0$ \\
+            \hline
+        \end{tabular}
+    \]
+    \[
+        \begin{tabular}{ |c|c c c c c c c c c c| }
+            \hline
+            & +$\lambda_{1,0}$ & $\lambda_{1,1}$ & +$\lambda_{1,2}$ & +$\lambda_{1,3}$ & +$\lambda_{1,4}$ & +$\lambda_{1,5}$ & +$\lambda_{1,6}$ & +$\lambda_{1,7}$  & +$\lambda_{0}$ &  \\
+            \rowcolor{red!20}
+            $\theta_{0}$ && & & 12.0 && 9.0 &8.0 && -2.0& $\leq 15.0$ \\
+            $\theta_{1}$ && & & & 8.0 &9.0 && -3.0 &-2.0& $\leq 12.0$ \\
+            $\theta_{2}$ &16.0 && & & 8.0 && & & -2.0& $\leq 22.0$ \\
+            $\theta_{3}$ && 0.0 && 12.0 &8.0 && & & -2.0& $\leq 18.0$ \\
+            $\theta_{4}$ &16.0 && 1.0 && & & & & -2.0& $\leq 15.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{5}$ &16.0 &0.0 && & & & 8.0 && -2.0& $\leq 22.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{6}$ && 0.0 &1.0 && & & & -3.0 &-2.0& $\leq 18.0$ \\
+            $\theta_{7}$ && 0.0 && 12.0 && & & & -2.0& $\leq 10.0$ \\
+            $\theta_{8}$ && & 1.0 && 8.0 && 8.0 && -2.0& $\leq 15.0$ \\
+            $\theta_{9}$ && & & & 8.0 && 8.0 &-3.0 &-2.0& $\leq 11.0$ \\
+            $\theta_{10}$ && 0.0 &1.0 &12.0 && & & & -2.0& $\leq 13.0$ \\
+            $\theta_{11}$ && & & & & 9.0 &8.0 &-3.0 &-2.0& $\leq 12.0$ \\
+            && & & & &  && & -2.0 & $\leq 0.0$ \\
+            \hline
+        \end{tabular}
+    \]
+    \[
+        \begin{tabular}{ |c|c c c c c c c c c c| }
+            \hline
+            & +$\lambda_{1,0}$ & $\lambda_{1,1}$ & +$\lambda_{1,2}$ & +$\lambda_{1,3}$ & +$\lambda_{1,4}$ & +$\lambda_{1,5}$ & +$\lambda_{1,6}$ & +$\lambda_{1,7}$  & +$\lambda_{0}$ &  \\
+            $\theta_{0}$ && & & 0.0 && 9.0 &8.0 && -2.0& $\leq 15.0$ \\
+            $\theta_{1}$ && & & & 8.0 &9.0 && -3.0 &-2.0& $\leq 12.0$ \\
+            $\theta_{2}$ &16.0 && & & 8.0 && & & -2.0& $\leq 22.0$ \\
+            $\theta_{3}$ && 12.0 && 0.0 &8.0 && & & -2.0& $\leq 18.0$ \\
+            $\theta_{4}$ &16.0 && 1.0 && & & & & -2.0& $\leq 15.0$ \\
+            \rowcolor{red!20}
+            $\theta_{5}$ &16.0 &12.0 && & & & 8.0 && -2.0& $\leq 22.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{6}$ && 12.0 &1.0 && & & & -3.0 &-2.0& $\leq 18.0$ \\
+            $\theta_{7}$ && 12.0 && 0.0 && & & & -2.0& $\leq 10.0$ \\
+            $\theta_{8}$ && & 1.0 && 8.0 && 8.0 && -2.0& $\leq 15.0$ \\
+            $\theta_{9}$ && & & & 8.0 && 8.0 &-3.0 &-2.0& $\leq 11.0$ \\
+            $\theta_{10}$ && 12.0 &1.0 &0.0 && & & & -2.0& $\leq 13.0$ \\
+            $\theta_{11}$ && & & & & 9.0 &8.0 &-3.0 &-2.0& $\leq 12.0$ \\
+            && & & & &  && & -2.0 & $\leq 0.0$ \\
+            \hline
+        \end{tabular}
+    \]
+    \[
+        \begin{tabular}{ |c|c c c c c c c c c c| }
+            \hline
+            & +$\lambda_{1,0}$ & $\lambda_{1,1}$ & +$\lambda_{1,2}$ & +$\lambda_{1,3}$ & +$\lambda_{1,4}$ & +$\lambda_{1,5}$ & +$\lambda_{1,6}$ & +$\lambda_{1,7}$  & +$\lambda_{0}$ &  \\
+            $\theta_{0}$ && & & 4.67 && 5.67 &4.67 && 0.0& $\leq 15.0$ \\
+            $\theta_{1}$ && & & & 4.67 &5.67 && 1.67 &0.0& $\leq 12.0$ \\
+            $\theta_{2}$ &12.00 && & & 4.67 && & & 0.0& $\leq 22.0$ \\
+            $\theta_{3}$ && 5.33 && 4.67 &4.67 && & & 0.0& $\leq 18.0$ \\
+            $\theta_{4}$ &12.00 && 3.00 && & & & & 0.0& $\leq 15.0$ \\
+            $\theta_{5}$ &12.00 &5.33 && & & & 4.67 && 0.0& $\leq 22.0$ \\
+            \rowcolor{blue!20}
+            $\theta_{6}$ && 5.33 &3.00 && & & & 1.67 &0.0& $\leq 18.0$ \\
+            $\theta_{7}$ && 5.33 && 4.67 && & & & 0.0& $\leq 10.0$ \\
+            $\theta_{8}$ && & 3.00 && 4.67 && 4.67 && 0.0& $\leq 15.0$ \\
+            $\theta_{9}$ && & & & 4.67 && 4.67 &1.67 &0.0& $\leq 11.0$ \\
+            $\theta_{10}$ && 5.33 &3.00 &4.67 && & & & 0.0& $\leq 13.0$ \\
+            $\theta_{11}$ && & & & & 5.67 &4.67 &1.67 &0.0& $\leq 12.0$ \\
+            && & & & &  && & 0.0 & $\leq 0.0$ \\
+            \hline
+        \end{tabular}
+    \]
 
 \end{document}
