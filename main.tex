@@ -36,8 +36,6 @@
 
     \maketitle
     It should preemptively be noted that the \texttt{ipynb} notebook supplied along side with the code shows results and the way the code was developed.
-    It should also be noted that in the assignments where the data-set was not mentioned, I generated the combinations myself.
-    I in addition to taking a subset of the provided data, generated the combinations myself for assignments where techniques such as column generation needs "new columns" to add.
     
     \clearpage
 
@@ -53,16 +51,26 @@
     \end{equation*}
     Compared to the tasked problem we need a couple of things to complete the model.
     We implicitly only allow routes that satisfy the capacity limit by only allowing such sets in the problem.\\\\
-    The "additional" aspect is the time windows, which we can model quite easily by the following constraint.
+    The "additional" aspect is the time windows, which we can model in a few ways.
+    \begin{enumerate}
+        \item By pre-processing the dataset such that only time-feasible routes are considered.
+        \item By adding a constraint which checks this at run-time.
+        \item By solving a problem for each possible route which minimizes the cost of the given route, satisfying the time window constraint.
+    \end{enumerate}
+    One could also choose to model this in the objective, but as it is a hard constraint I see no reason why pre-processing shouldn't be the solution.
+    I will implement the constraint in the pricing problem, in a later task.
+    Running this model on the supplied dataset yields an objective value of $45$ and the following columns.
     \[
-    \theta_r \, a_{i,r} \, q_{i,r} \leq l_i   , \,\,\,\,\,\,\,\,\, \forall i \in N, \, \forall r \in \Omega
+        \begin{bmatrix}
+            [0 & 1 & 0 & 1 & 1 & 0 & 0 & 0]\\
+            [1 & 0 & 1 & 0 & 0 & 0 & 0 & 0]\\
+            [0 & 0 & 0 & 0 & 0 & 1 & 1 & 1]
+        \end{bmatrix}
     \]
-    We let $q_{i,r}$ denote the time it takes to reach customer $i$ in route $r$, where we include accounting for waiting for each customer in the route to be ready (eg the time window beginning).
-    This can simply be implemented by observing \texttt{makeQ} from the source code.
-    Observe that we can realize that this constraint can be applied before solving the model, meaning that effectively we can filter out solutions that do not satisfy this constraint.
-    The optimal solution yields an objective value of $41$.
+
 
     \section{Task 2}
+    For this task I will assume that the supplied dataset (\texttt{data.routes}) is the entire dataset $\Omega$.
     By introducing linear relaxation we can find a good, but not necessarily optimal solution.
     We perform linear relaxation by relaxing the binary constraint, such that our model becomes.
     \begin{equation*}
@@ -74,26 +82,20 @@
         \end{array}
     \end{equation*}
     Running this on all combinations of the possible routes.
-    The result from the above model yields $m = 3$ which is not a violation of the original problem, furthermore an objective value of $41$, which is in fact the same as the IP model.
-    Luckily we did reach an integer solution which must mean that our polytope's best value is also the integer solution!
-    I tried to not preprocess the time-window constraint, which did not yield an IP solution, such that it needed rounding but luckily the LP solution was integer (because of unimodularity?).
+    The result from the above model yields $m = 7$ which is a violation of the original problem, furthermore an objective value of $41.666$.
     If we inspect the produced routes:
     \[
     \begin{bmatrix}
-        [0 & 1 & 0 & 1 & 0 & 0 & 0 & 0]\\
-        [1 & 0 & 1 & 0 & 0 & 0 & 0 & 1]\\
-        [0 & 0 & 0 & 0 & 1 & 1 & 1 & 0]
+        [0 & 0 & 0 & 1 & 0 & 1 & 1 & 0] \\
+        [0 & 0 & 0 & 0 & 1 & 1 & 0 & 1] \\
+        [1 & 0 & 1 & 0 & 0 & 0 & 0 & 0] \\
+        [1 & 1 & 0 & 0 & 0 & 0 & 1 & 0] \\
+        [0 & 1 & 0 & 1 & 0 & 0 & 0 & 0] \\
+        [0 & 0 & 0 & 0 & 1 & 0 & 1 & 1] \\
+        [0 & 1 & 1 & 1 & 0 & 0 & 0 & 0]
     \end{bmatrix}
     \]
-    Which in fact is exactly the same as the IP solution:
-    \[
-        \begin{bmatrix}
-            [0 & 1 & 0 & 1 & 0 & 0 & 0 & 0]\\
-            [1 & 0 & 1 & 0 & 0 & 0 & 0 & 1]\\
-            [0 & 0 & 0 & 0 & 1 & 1 & 1 & 0]
-        \end{bmatrix}
-    \]
-    I also ran this on the supplied data, which did not yield an integer solution.
+    The non-zero variables:
     \[
         \begin{tabular}{ |c|c| }
             \hline
@@ -172,14 +174,14 @@
     In fact if a non-negative reduced cost is found, the solution is optimal.
     We must construct the dual to our problem, to determine the reduced cost.
     The dual variables can be observed by inspecting the primal tableau.
-    In the problem we have two constraints, such that we have two sets of dual variables.
-    One of the constraints is a singleton (the $\leq m$ constraint), which I will denote $\lambda_0$.
+    In the problem we have two sets of constraints, such that we have two sets of dual variables.
+    One of the sets of constraints is a singleton (the $\leq m$ constraint), which I will denote $\lambda_0$.
     The second set of constraints is over $i \in N$, so I will denote them $\lambda_{1, r}$.
     Our reduced cost of a variable $\theta_r$ can be realized by $\hat{c}_r = c_r - \lambda_T A_r$.
-    In fact, constraints will be a valid pathing and with the reduction in cost it becomes a shortest path problem.
+    The problem for pricing a column will be the shortest path problem.
     Every vertex must exactly consume one edge and produce one, or rather every vertex must be the sink of exactly one edge and the source of one.
     Additionally we use big-M to model capacity constraints, and include the time window constraint.
-    Let $A$ be the set of edges, $V$ be the set of vertices, $Q$ the the max capacity and $x_{i,j}$ be the activation variable of path $i,j$.
+    Let $A$ be the set of edges, $V$ be the set of vertices including the depot or origin point, $N = V \backslash \{ 0 \}$, $Q$ the the max capacity and $x_{i,j}$ be the activation variable of path $i,j$.
     Finally let $y_i \in \mathbb{R}$ be the load on the vehicle when leaving vertex $i \in V$.\\\\
     To express the "path taken" we must accumulate and check all time window constraints for violation.
     \[
@@ -187,10 +189,8 @@
     \]
     As one might notice, this is not easily expressible, as the amount of sum's should be equal to the length of the path from $0$ to $z$.
     \begin{enumerate}
-        \item One solution is to make the shortest-path algorithm aware of the domain of the routes, in a sense pre-generating all possible permutations of path's and excluding bad ones.
         \item\label{enum:test2} Another could be to check the constraint after the problem has been solved, if the constraint is violated then solve it again with the previously chosen path excluded.
         \item\label{enum:test} A solution could also be to introduce an additional variable like $y$, but for time window's as this can also be viewed as a resource.
-        \item There also exists a polynomial time algorithm to solve this based on labelling in chapter two of \cite{petersen2011shortest}, but seems way out of scope of this assignment.
     \end{enumerate}
     I will use \autoref{enum:test}, as it seems the most appropriate (but not simple, that would certainly be \autoref{enum:test2}).
     To do this I will introduce a new variable $t_i$, which will be the time spent travelling to position $t_i$.
@@ -202,12 +202,12 @@
         max(e_j, time_{i,j} + t_i) + Mx_{i,j} \leq t_j + M \,\,\,\, \forall i,j \in A: j \neq 0
     \]
     Once again there is a problem, $max$ is not linear thus we must find a way around this.
-    Luckily we are minimizing and want to find the maximum, so we can simply introduce a variable to the model which specifies the time of delivery $j$ given we are coming from $i$.
+    We can simply introduce a variable to the model which specifies the time of delivery $j$ given we are coming from $i$, and the will make sure that this constraint is valid.
     \[
         \alpha_{i,j} \geq e_j \land \alpha_{i,j} \geq time_{i,j} + t_i \,\,\,\, \forall i,j \in A: j \neq 0
     \]
-    The solver will pick the smallest value to assign to $\alpha$ that is, the maximum of the two, without compromising the solution quality.
-    Keep in mind that "serving time" can also easily be modelled here if wished by simply adding it to $\alpha$.
+    The solver will pick the smallest value to assign to $\alpha$ that is, the maximum of the two.
+    Note that "serving time" can also easily be modelled here if wished by simply adding it to $\alpha$.
     The time constraint can now be expressed more formally as.
     \begin{equation*}
         \begin{array}{ll@{}ll}
@@ -222,9 +222,8 @@
         \begin{array}{ll@{}ll}
             \text{minimize}  & \displaystyle\sum_{i,j \in A} ( c_{i, j} - \lambda_{1,i})x_{i,j} - \lambda_0&&\\
             \text{subject to}& \displaystyle\sum_{i, k \in A}x_{i,k} = \sum_{k, j \in A}x_{k,j} &&\forall k \in N\\
-            %& \displaystyle\sum_{0,j \in A}x_{0,j} = 1 &&\\
-            %& \displaystyle\sum_{i,0 \in A}x_{i,0} = 1 &&\\\\
-            & \displaystyle\sum_{j \in V \backslash \{ i \}}x_{i,j} = 1 && \forall i \in V\\\\
+            & \displaystyle\sum_{0,j \in A}x_{0,j} = 1 &&\\
+            & \displaystyle\sum_{i,0 \in A}x_{i,0} = 1 &&\\\\
             & \displaystyle\alpha_{i,j} \geq e_j \land \alpha_{i,j} \geq time_{i,j} + t_i &&  \forall i,j \in A: j \neq 0\\
             & \displaystyle \alpha_{i,j} + Mx_{i,j} \leq t_j + M  && \forall i,j \in A: j \neq 0\\
             & \displaystyle0 \leq t_i \leq l_i &&  \forall i \in V \backslash \{ 0 \}\\\\
@@ -235,11 +234,11 @@
         \end{array}
     \end{equation*}
     Notice that we cannot preemptively remove path's to be checked based on time windows, like before.
-    This is because the shortest path algorithm works different in that the permutation of visiting order dictates when we arrive, thus we must include the time-window constraint.
+    This is because that we actually generate our columns ad-hoc.
 
     \section{Task 4}
     I will begin using a subset of original dataset and then add columns by looking at missing columns from the original dataset.
-    In practice you would have the solution determine the column to add, but as this task is to be carried out by hand I will be not be creative and just use the initially proposed columns, and terminate once there are no more columns with reduced cost.
+    In practice you would have the solution determine the column to add (like in task 5), but as this task is to be carried out by hand I will be not be creative and just use the initially proposed columns, and terminate once there are no more columns with reduced cost.
     Initially $\hat{\Omega} = \{ \theta_3, \theta_4, \theta_{11} \}$.
     \[
         \begin{tabular}{ |c c c c | }
@@ -430,8 +429,6 @@
 
     \section{Task 6}
 
-    \bibliographystyle{ieeetr}
-    \bibliography{bibl}
 
     \clearpage
     \section{Appendix}
