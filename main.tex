@@ -53,9 +53,8 @@
     We implicitly only allow routes that satisfy the capacity limit by only allowing such sets in the problem.\\\\
     The "additional" aspect is the time windows, which we can model in a few ways.
     \begin{enumerate}
-        \item By pre-processing the dataset such that only time-feasible routes are considered.
-        \item By adding a constraint which checks this at run-time.
-        \item By solving a problem for each possible route which minimizes the cost of the given route, satisfying the time window constraint.
+        \item By pre-processing the dataset such that only time-feasible routes are considered. (polynomial)
+        \item By solving a problem for each possible route which minimizes the cost of the given route, satisfying the time window constraint. (an IP problem so NP)
     \end{enumerate}
     One could also choose to model this in the objective, but as it is a hard constraint I see no reason why pre-processing shouldn't be the solution.
     I will implement the constraint in the pricing problem, in a later task.
@@ -237,8 +236,8 @@
     This is because that we actually generate our columns ad-hoc.
 
     \section{Task 4}
-    I will begin using a subset of original dataset and then add columns by looking at missing columns from the original dataset.
-    In practice you would have the solution determine the column to add (like in task 5), but as this task is to be carried out by hand I will be not be creative and just use the initially proposed columns, and terminate once there are no more columns with reduced cost.
+    I will begin using a subset of original dataset and then add 4 columns using the path that the pricing problem yields.
+    In practice you would continue until no more reduced cost routes are found, but this may end up being many iterations.
     Initially $\hat{\Omega} = \{ \theta_3, \theta_4, \theta_{11} \}$.
     \[
         \begin{tabular}{ |c c c c | }
@@ -258,8 +257,8 @@
             \hline
         \end{tabular}
     \]
-    Then we solve and look for a possible column to introduce based on the price of the previously introduce problem.
-    We have initially.
+    Then we solve the pricing problem with the RMP's duals as parameters and look for a possible column to introduce.
+    We have the initial RMP solution.
     \begin{equation*}
         \begin{array}{c}
             \theta_{3} = 1.00\\
@@ -270,7 +269,13 @@
             \lambda_0 = 0.0
         \end{array}
     \end{equation*}
-    We can introduce the variable $\theta_7$, with the reduced cost $\hat{c} = 18-10 = -8$
+    Solving the pricing problem with the RMP duals, we find the column $r$ with price $c_r$ and $\hat{c} = -18.0$:
+    \begin{equation*}
+        \begin{array}{c}
+            r = [0, 2, 1, 0]\\
+            c_r = 15
+        \end{array}
+    \end{equation*}
     \begin{figure}[H]
         \hspace{-0.8cm}
         \begin{minipage}{.55\textwidth}
@@ -280,7 +285,7 @@
                     \hline
                     \backslashbox{$\lambda$}{$c_r$} & 18 & 15 & 12 &  \\
                     \hline
-                    $15.0$ & 0 & 1 & 0 &  = 1\\
+                    \cellcolor{red!25}$15.0$ & 0 & 1 & 0 &  = 1\\
                     \cellcolor{red!25}$18.0$ & 1 & 0 & 0 &  = 1\\
                     $0.0$ & 0 & 1 & 0 &  = 1\\
                     $0.0$ & 1 & 0 & 0 &  = 1\\
@@ -300,21 +305,21 @@
         \begin{minipage}{.55\textwidth}
             \centering
             \[
-                \begin{tabular}{ |c|c|c|b|c|c| }
+                \begin{tabular}{ |c|c|c|c|b|c| }
                     \hline
-                    \backslashbox{$\lambda$}{$c_r$} & 18 & 15 & 10 & 12 &  \\
+                    \backslashbox{$\lambda$}{$c_r$} & 18 & 15 & 12 & 15 &  \\
                     \hline
+                    $0.0$ & 0 & 1 & 0 & \cellcolor{red!25}1 &  = 1\\
+                    $0.0$ & 1 & 0 & 0 & \cellcolor{red!25}1 &  = 1\\
                     $15.0$ & 0 & 1 & 0 & 0 &  = 1\\
-                    $0.0$ & 1 & 0 & \cellcolor{red!25}1 & 0 &  = 1\\
-                    $0.0$ & 0 & 1 & 0 & 0 &  = 1\\
-                    $0.0$ & 1 & 0 & 1 & 0 &  = 1\\
                     $18.0$ & 1 & 0 & 0 & 0 &  = 1\\
-                    $12.0$ & 0 & 0 & 0 & 1 &  = 1\\
-                    $0.0$ & 0 & 0 & 0 & 1 &  = 1\\
-                    $0.0$ & 0 & 0 & 0 & 1 &  = 1\\
+                    $0.0$ & 1 & 0 & 0 & 0 &  = 1\\
+                    $12.0$ & 0 & 0 & 1 & 0 &  = 1\\
+                    $0.0$ & 0 & 0 & 1 & 0 &  = 1\\
+                    $0.0$ & 0 & 0 & 1 & 0 &  = 1\\
                     $0.0$ & 1 & 1 & 1 & 1 & $\leq 3$\\
                     \hline
-                    $\theta$ & 1.0 & 1.0 & 0.0 & 1.0 & \\
+                    $\theta$ & 1.0 & 1.0 & 1.0 & 0.0 & \\
                     \hline
                 \end{tabular}
             \]
@@ -324,108 +329,108 @@
         \caption{Notice that we use the \textbf{previous} table's $\lambda$'s (dual variables, that represent the constraints) since the new column's reduced cost is relative to the \textbf{current} solution, the interesting cells have been marked in red}
     \end{figure}
     \noindent The remaining tables will be in \autoref{ss:tables}.
-    Next I will introduce $\theta_1$, with $\hat{c}$ in respect to the previous table in \autoref{fig:test2}.
+    Next I will introduce the following in respect to previous table in \autoref{fig:test2}.
     \begin{equation*}
         \begin{array}{c}
-            \hat{c} = -17.0\\
+            r = [0, 6, 3, 4, 0]\\
+            c_r = 20\\
+            \hat{c} = -25.0\\
             cost = 45.00\\
-            \lambda_{1,r} = (15.00,0.00,0.00,0.00,18.00,12.00,0.00,0.00)\\
+            \lambda_{1,r} = (0.00,0.00,15.00,18.00,0.00,12.00,0.00,0.00)\\
             \lambda_0 = 0.0
         \end{array}
     \end{equation*}
-    Next $\theta_2$, like above:
+    And again.
     \begin{equation*}
         \begin{array}{c}
-            \hat{c} = -5.0\\
+            r = [0, 5, 7, 1, 0]\\
+            c_r = 23\\
+            \hat{c} = -22.0\\
             cost = 45.00\\
-            \lambda_{1,r} = (15.00,0.00,0.00,0.00,18.00,0.00,18.00,-6.00)\\
+            \lambda_{1,r} = (15.00,0.00,0.00,0.00,18.00,0.00,12.00,0.00)\\
             \lambda_0 = 0.0
         \end{array}
     \end{equation*}
-    Next $\theta_9$:
+    Then.
     \begin{equation*}
         \begin{array}{c}
-            \hat{c} = -11.0\\
+            r = [0, 4, 3, 8, 0]\\
+            c_r = 15\\
+            \hat{c} = -68.0\\
             cost = 45.00\\
-            \lambda_{1,r} = (0.00,0.00,15.00,0.00,18.00,0.00,18.00,-6.00)\\
+            \lambda_{1,r} = (0.00,0.00,15.00,18.00,0.00,-13.00,0.00,25.00)\\
             \lambda_0 = 0.0
         \end{array}
     \end{equation*}
-    Next $\theta_{10}$:
+    And then all the following from iterating like above.
     \begin{equation*}
         \begin{array}{c}
-            \hat{c} = -16.0\\
-            cost = 45.00\\
-            \lambda_{1,r} = (0.00,15.00,20.00,0.00,8.00,9.00,8.00,0.00)\\
-            \lambda_0 = -5.0
+            r_1 = [0, 4, 1, 0]\\
+            c_{r_1} = 14\\
+            r_2 = [0, 2, 4, 7, 0]\\
+            c_{r_2} = 17\\
+            r_3 = [0, 5, 3, 0]\\
+            c_{r_3} = 13\\
+            r_4 = [0, 5, 6, 8, 0]\\
+            c_{r_4} = 13\\
+            r_5 = [0, 4, 1, 3, 0]\\
+            c_{r_5} = 15\\
+            r_6 = [0, 5, 7, 8, 0]\\
+            c_{r_6} = 13\\
         \end{array}
     \end{equation*}
-    No more of the variables make sense to add since there are no more variables which yield a negative reduced cost (in the limited example).
-    The final thetas.
+    This solution is not optimal, as we can still find solutions that yield reduced cost, but for now these are the variables ($\theta$) after adding the above column.
     \begin{equation*}
         \begin{array}{c}
+            \theta_{0} = 0.50\\
             \theta_{1} = 0.00\\
-            \theta_{2} = 0.00\\
-            \theta_{3} = 1.00\\
-            \theta_{4} = 1.00\\
+            \theta_{2} = 1.00\\
+            \theta_{3} = 0.50\\
+            \theta_{4} = 0.00\\
+            \theta_{5} = 0.00\\
+            \theta_{6} = 0.00\\
             \theta_{7} = 0.00\\
-            \theta_{9} = 0.00\\
+            \theta_{8} = 0.00\\
+            \theta_{9} = 0.50\\
             \theta_{10} = 0.00\\
-            \theta_{11} = 1.00\\
-            cost = 45.00\\
-            \lambda_{1,r} = (4.00,0.00,11.00,0.00,18.00,19.00,18.00,-25.00)\\
-            \lambda_0 = 0.0
+            \theta_{11} = 0.50\\
         \end{array}
     \end{equation*}
-    The duals can be read easier if \autoref{fig:collision} is inspected, notice that the solution is but a subset of the entire dataset, also violations don't matter as they don't contribute to the optimal solution.
+    The first couple of tables can be found in the appendix.
+    I stop at a non-integer solution, to solve task 6 and 7.
 
     \section{Task 5}
     I will first give a quick description of what the code does and then give a short example.
     First the \texttt{column\_generation\_RMP} function is invoked, which keeps iterating, since an internal return will stop the loop.
     In every iteration I solve the master problem, and find the duals.
-    I then solve the pricing problem with these duals on every addable column until there are no more columns remaining, adding each negative objective value result to a list.
-    After going through all these sub-problems, I then go through the generated sub-problems and pick the one with the most reduced cost.
-    If no sub-problems with reduced cost was found OR there are no more columns to add, I return the restricted master solution, as it is the optimal.
-    Keep in mind much of the code is simply accounting for things such as "off by 1" and loop base-cases.
+    I then solve the pricing problem with these duals, which will yield an assignment of variables that represent a path $0 \rightarrow \dots \rightarrow 0$.
+    After finding this new path with the most negative reduced cost, the path with its cost is added to the original dataset and cost set, and the algorithm iterates.
+    If the pricing problem finds only a positive reduced cost, then the current set (without the just found path with non-negative reduced cost), is the optimal set.
+    Keep in mind much of the code is simply accounting for things such as "off by 1" and loop base-cases for the implementations.
     \\\\
     Since the lagrangian solution was very unfriendly, I will use the result of the LP relaxed solution of the initially supplied dataset.
-    The solutions from this were not integer, so I will randomly round and have the initial routes $1,3,4,7$.
-    Initially we have the subset $\hat{\Omega} \subset \Omega$.
+    I will initial routes $\hat{\Omega} = \{ 0, 1, 4, 5, 7, 9, 10\}$ (where 0 is the customer 0 and not the depot).
+    The found solution is.
     \[
-        \begin{tabular}{ |c| c|c|c|c|c|c|c|c | }
+        \begin{tabular}{ |c | c | }
             \hline
-            $r_r$ &     $\hat{\Omega}_r$    &  $c_r$ \\
+            $\theta$ & $r$ \\
             \hline
-            $r_1$ &     [0 0 0 0 1 1 0 1]   &  $12.0$ \\
-            $r_3$ &     [0 1 0 1 1 0 0 0]   &  $18.0$ \\
-            $r_4$ &     [1 0 1 0 0 0 0 0]   &  $15.0$ \\
-            $r_7$ &     [0 1 0 1 0 0 0 0]   &  $10.0$ \\
+            0.33 & [0, 0, 0, 0, 1, 1, 0, 1]\\
+            0.33 & [0, 0, 0, 0, 1, 0, 1, 1]\\
+            0.33 & [0, 1, 1, 1, 0, 0, 0, 0]\\
+            0.33 & [1, 1, 0, 1, 0, 0, 0, 0]\\
+            0.33 & [0, 0, 0, 0, 0, 1, 1, 1]\\
+            0.33 & [0, 0, 0, 0, 1, 1, 1, 0]\\
+            0.33 & [1, 1, 1, 0, 0, 0, 0, 0]\\
+            0.33 & [1, 0, 1, 1, 0, 0, 0, 0]\\
             \hline
         \end{tabular}
     \]
-    And the solution values after the first iteration, the first $r$ rows are $\lambda_1$'s and the final $\leq 3$ row is $\lambda_0$.
-    \[
-        \hspace{-1.5cm}
-        \begin{tabular}{ |c| c|c|c|c|c|c|c|c|c|c|c|c|c|c | }
-            \hline
-            \backslashbox{$\lambda$}{$c_r$} &  12 & 18 & 5 & 10& \\
-            \hline
-            $15.0$ & 0 & 0 & 1 & 0  & = 1\\
-            $17.0$ & 0 & 1 & 0 & 1 & = 1\\
-            $0.0$ & 0 & 0 & 1 & 0 & = 1\\
-            $0.0$ & 0 & 1 & 0 & 1 & = 1\\
-            $0.0$ & 1 & 1 & 0 & 0 & = 1\\
-            $0.0$ & 1 & 0 & 0 & 0 & = 1\\
-            $13.0$ & 0 & 0 & 0 & 0 & = 1\\
-            $0.0$ & 1 & 0 & 0 & 0 & = 1\\
-            $0.0$ & 1 & 1 & 1 & 1 & $\leq $ 3\\
-            \hline
-            $\theta$ & 1 & 0 & 1 & 1 & \\
-            \hline
-        \end{tabular}
-    \]
-    First I introduce the route $[1, 1, 0, 0, 0, 0, 1, 0]$, which yields a reduction in cost of $-17.0$.
-    Moreover the algorithm will keep solving the shortest path sub-problem and pick the best reduced cost to approach the point of primal and dual feasibility.
+    \subsection{Acknowledgements}
+    The solution is not completely correct, since I had a bug which I could not solve.
+    The first couple of iterations are successful, but at some point I keep finding the same column to add every iteration.
+    To get around this I terminate if a duplicate is found with reduced cost, but I acknowledge that this is not how the algorithm should be implemented.
 
     \section{Task 6}
 
@@ -434,142 +439,59 @@
     \section{Appendix}
     \subsection{CG Tables}\label{ss:tables}
     \resizebox{\columnwidth}{!}{%
-        \begin{tabular}{ |c|c|c|c|c| }
-            \hline
-            \backslashbox{$\lambda$}{$c_r$} & 18 & 15 & 12 &  \\
-            \hline
-            $15.0$ & 0 & 1 & 0 &  = 1\\
-            $18.0$ & 1 & 0 & 0 &  = 1\\
-            $0.0$ & 0 & 1 & 0 &  = 1\\
-            $0.0$ & 1 & 0 & 0 &  = 1\\
-            $0.0$ & 1 & 0 & 0 &  = 1\\
-            $12.0$ & 0 & 0 & 1 &  = 1\\
-            $0.0$ & 0 & 0 & 1 &  = 1\\
-            $0.0$ & 0 & 0 & 1 &  = 1\\
-            $0.0$ & 1 & 1 & 1 & $\leq 3$\\
-            \hline
-            $\theta$ & 1.0 & 1.0 & 1.0 & \\
-            \hline
-        \end{tabular}
-        \quad
-        \begin{tabular}{ |c|c|c|c|c|c| }
-            \hline
-            \backslashbox{$\lambda$}{$c_r$} & 18 & 15 & 10 & 12 &  \\
-            \hline
-            $15.0$ & 0 & 1 & 0 & 0 &  = 1\\
-            $0.0$ & 1 & 0 & 1 & 0 &  = 1\\
-            $0.0$ & 0 & 1 & 0 & 0 &  = 1\\
-            $0.0$ & 1 & 0 & 1 & 0 &  = 1\\
-            $18.0$ & 1 & 0 & 0 & 0 &  = 1\\
-            $12.0$ & 0 & 0 & 0 & 1 &  = 1\\
-            $0.0$ & 0 & 0 & 0 & 1 &  = 1\\
-            $0.0$ & 0 & 0 & 0 & 1 &  = 1\\
-            $0.0$ & 1 & 1 & 1 & 1 & $\leq 3$\\
-            \hline
-            $\theta$ & 1.0 & 1.0 & 0.0 & 1.0 & \\
-            \hline
-        \end{tabular}
-        \quad
         \begin{tabular}{ |c|c|c|c|c|c|c| }
             \hline
-            \backslashbox{$\lambda$}{$c_r$} & 12 & 18 & 15 & 10 & 12 &  \\
+            \backslashbox{$\lambda$}{$c_r$} & 18 & 15 & 12 & 15 & 20 &  \\
             \hline
-            $15.0$ & 0 & 0 & 1 & 0 & 0 &  = 1\\
-            $0.0$ & 0 & 1 & 0 & 1 & 0 &  = 1\\
-            $0.0$ & 0 & 0 & 1 & 0 & 0 &  = 1\\
-            $0.0$ & 0 & 1 & 0 & 1 & 0 &  = 1\\
-            $18.0$ & 1 & 1 & 0 & 0 & 0 &  = 1\\
+            $15.0$ & 0 & 1 & 0 & 1 & 0 &  = 1\\
+            $0.0$ & 1 & 0 & 0 & 1 & 0 &  = 1\\
+            $0.0$ & 0 & 1 & 0 & 0 & 1 &  = 1\\
             $0.0$ & 1 & 0 & 0 & 0 & 1 &  = 1\\
-            $18.0$ & 0 & 0 & 0 & 0 & 1 &  = 1\\
-            $-6.0$ & 1 & 0 & 0 & 0 & 1 &  = 1\\
+            $18.0$ & 1 & 0 & 0 & 0 & 0 &  = 1\\
+            $0.0$ & 0 & 0 & 1 & 0 & 1 &  = 1\\
+            $12.0$ & 0 & 0 & 1 & 0 & 0 &  = 1\\
+            $0.0$ & 0 & 0 & 1 & 0 & 0 &  = 1\\
             $0.0$ & 1 & 1 & 1 & 1 & 1 & $\leq 3$\\
             \hline
-            $\theta$ & 0.0 & 1.0 & 1.0 & 0.0 & 1.0 & \\
+            $\theta$ & 1.0 & 1.0 & 1.0 & 0.0 & 0.0 & \\
             \hline
         \end{tabular}
-    }\\\\
-    \resizebox{\columnwidth}{!}{%
+        \quad
         \begin{tabular}{ |c|c|c|c|c|c|c|c| }
             \hline
-            \backslashbox{$\lambda$}{$c_r$} & 12 & 22 & 18 & 15 & 10 & 12 &  \\
+            \backslashbox{$\lambda$}{$c_r$} & 18 & 15 & 12 & 15 & 20 & 23 &  \\
             \hline
-            $0.0$ & 0 & 1 & 0 & 1 & 0 & 0 &  = 1\\
-            $0.0$ & 0 & 0 & 1 & 0 & 1 & 0 &  = 1\\
-            $15.0$ & 0 & 0 & 0 & 1 & 0 & 0 &  = 1\\
-            $0.0$ & 0 & 0 & 1 & 0 & 1 & 0 &  = 1\\
-            $18.0$ & 1 & 1 & 1 & 0 & 0 & 0 &  = 1\\
+            $0.0$ & 0 & 1 & 0 & 1 & 0 & 1 &  = 1\\
+            $0.0$ & 1 & 0 & 0 & 1 & 0 & 0 &  = 1\\
+            $15.0$ & 0 & 1 & 0 & 0 & 1 & 0 &  = 1\\
+            $18.0$ & 1 & 0 & 0 & 0 & 1 & 0 &  = 1\\
             $0.0$ & 1 & 0 & 0 & 0 & 0 & 1 &  = 1\\
-            $18.0$ & 0 & 0 & 0 & 0 & 0 & 1 &  = 1\\
-            $-6.0$ & 1 & 0 & 0 & 0 & 0 & 1 &  = 1\\
+            $-13.0$ & 0 & 0 & 1 & 0 & 1 & 0 &  = 1\\
+            $0.0$ & 0 & 0 & 1 & 0 & 0 & 1 &  = 1\\
+            $25.0$ & 0 & 0 & 1 & 0 & 0 & 0 &  = 1\\
             $0.0$ & 1 & 1 & 1 & 1 & 1 & 1 & $\leq 3$\\
             \hline
-            $\theta$ & 0.0 & 0.0 & 1.0 & 1.0 & 0.0 & 1.0 & \\
+            $\theta$ & 1.0 & 1.0 & 1.0 & 0.0 & 0.0 & 0.0 & \\
             \hline
         \end{tabular}
         \quad
         \begin{tabular}{ |c|c|c|c|c|c|c|c|c| }
             \hline
-            \backslashbox{$\lambda$}{$c_r$} & 12 & 22 & 18 & 15 & 10 & 11 & 12 &  \\
+            \backslashbox{$\lambda$}{$c_r$} & 18 & 15 & 12 & 15 & 20 & 23 & 15 &  \\
             \hline
-            $0.0$ & 0 & 1 & 0 & 1 & 0 & 0 & 0 &  = 1\\
-            $15.0$ & 0 & 0 & 1 & 0 & 1 & 0 & 0 &  = 1\\
-            $20.0$ & 0 & 0 & 0 & 1 & 0 & 0 & 0 &  = 1\\
-            $0.0$ & 0 & 0 & 1 & 0 & 1 & 0 & 0 &  = 1\\
-            $8.0$ & 1 & 1 & 1 & 0 & 0 & 1 & 0 &  = 1\\
-            $9.0$ & 1 & 0 & 0 & 0 & 0 & 0 & 1 &  = 1\\
-            $8.0$ & 0 & 0 & 0 & 0 & 0 & 1 & 1 &  = 1\\
-            $0.0$ & 1 & 0 & 0 & 0 & 0 & 1 & 1 &  = 1\\
-            $-5.0$ & 1 & 1 & 1 & 1 & 1 & 1 & 1 & $\leq 3$\\
+            $15.0$ & 0 & 1 & 0 & 1 & 0 & 1 & 0 &  = 1\\
+            $0.0$ & 1 & 0 & 0 & 1 & 0 & 0 & 0 &  = 1\\
+            $0.0$ & 0 & 1 & 0 & 0 & 1 & 0 & 1 &  = 1\\
+            $13.0$ & 1 & 0 & 0 & 0 & 1 & 0 & 1 &  = 1\\
+            $5.0$ & 1 & 0 & 0 & 0 & 0 & 1 & 0 &  = 1\\
+            $7.0$ & 0 & 0 & 1 & 0 & 1 & 0 & 0 &  = 1\\
+            $3.0$ & 0 & 0 & 1 & 0 & 0 & 1 & 0 &  = 1\\
+            $2.0$ & 0 & 0 & 1 & 0 & 0 & 0 & 1 &  = 1\\
+            $0.0$ & 1 & 1 & 1 & 1 & 1 & 1 & 1 & $\leq 3$\\
             \hline
-            $\theta$ & 0.0 & 0.0 & 1.0 & 1.0 & 0.0 & 0.0 & 1.0 & \\
+            $\theta$ & 1.0 & 1.0 & 1.0 & 0.0 & 0.0 & 0.0 & 0.0 & \\
             \hline
         \end{tabular}
-    }\\\\
-    \resizebox{\columnwidth}{!}{%
-        \begin{tabular}{ |c|c|c|c|c|c|c|c|c|c| }
-        \hline
-        \backslashbox{$\lambda$}{$c_r$} & 12 & 22 & 18 & 15 & 10 & 11 & 13 & 12 &  \\
-        \hline
-        $4.0$ & 0 & 1 & 0 & 1 & 0 & 0 & 0 & 0 &  = 1\\
-        $0.0$ & 0 & 0 & 1 & 0 & 1 & 0 & 1 & 0 &  = 1\\
-        $11.0$ & 0 & 0 & 0 & 1 & 0 & 0 & 1 & 0 &  = 1\\
-        $0.0$ & 0 & 0 & 1 & 0 & 1 & 0 & 1 & 0 &  = 1\\
-        $18.0$ & 1 & 1 & 1 & 0 & 0 & 1 & 0 & 0 &  = 1\\
-        $19.0$ & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 1 &  = 1\\
-        $18.0$ & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 1 &  = 1\\
-        $-25.0$ & 1 & 0 & 0 & 0 & 0 & 1 & 0 & 1 &  = 1\\
-        $0.0$ & 1 & 1 & 1 & 1 & 1 & 1 & 1 & 1 & $\leq 3$\\
-        \hline
-        $\theta$ & 0.0 & 0.0 & 1.0 & 1.0 & 0.0 & 0.0 & 0.0 & 1.0 & \\
-        \hline
-    \end{tabular}
     }
-    \begin{figure}
-        \begin{tabular}{ |c|c |c |c |c |c |c |c |c |c |c| }
-            \hline
-            & +$\lambda_{1,0}$ & $\lambda_{1,1}$ & +$\lambda_{1,2}$ & +$\lambda_{1,3}$ & +$\lambda_{1,4}$ & +$\lambda_{1,5}$ & +$\lambda_{1,6}$ & +$\lambda_{1,7}$  & +$\lambda_{0}$ &  \\
-            \hline
-            \rowcolor{red!20}
-            $\theta_{0}$ && & & 0.00 && 19.00 &18.00 && 0.0& $\leq 15.0$ \\
-            $\theta_{1}$ && & & & 18.00 &19.00 && -25.00 &0.0& $\leq 12.0$ \\
-            $\theta_{2}$ &4.00 && & & 18.00 && & & 0.0& $\leq 22.0$ \\
-            $\theta_{3}$ && 0.00 && 0.00 &18.00 && & & 0.0& $\leq 18.0$ \\
-            $\theta_{4}$ &4.00 && 11.00 && & & & & 0.0& $\leq 15.0$ \\
-            \rowcolor{blue!20}
-            $\theta_{5}$ &4.00 &0.00 && & & & 18.00 && 0.0& $\leq 22.0$ \\
-            \rowcolor{blue!20}
-            $\theta_{6}$ && 0.00 &11.00 && & & & -25.00 &0.0& $\leq 18.0$ \\
-            $\theta_{7}$ && 0.00 && 0.00 && & & & 0.0& $\leq 10.0$ \\
-            \rowcolor{red!20}
-            $\theta_{8}$ && & 11.00 && 18.00 && 18.00 && 0.0& $\leq 15.0$ \\
-            $\theta_{9}$ && & & & 18.00 && 18.00 &-25.00 &0.0& $\leq 11.0$ \\
-            $\theta_{10}$ && 0.00 &11.00 &0.00 && & & & 0.0& $\leq 13.0$ \\
-            $\theta_{11}$ && & & & & 19.00 &18.00 &-25.00 &0.0& $\leq 12.0$ \\
-            && & & & &  && & 0.0 & $\leq 0.0$ \\
-            \hline
-        \end{tabular}
-        \caption{}
-        \label{fig:collision}
-    \end{figure}
 
 \end{document}
