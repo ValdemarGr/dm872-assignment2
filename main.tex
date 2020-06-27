@@ -128,7 +128,7 @@
     Finding the specific sequence of customers to visit is simply a shortest path problem on each vehicle route.
     Of course the shortest-path algorithm should include the time-window constraint as the cost might not be the same as the travel-time.
 
-    This solution is not really interesting and just proves again the point that the vehicle limit constraint doesn't matter that much, since both the LP relaxation picks it and the lagrangian relaxation of the vehicle constraint.
+    This solution is not really interesting and just shows that the vehicle limit constraint doesn't matter that much.
     We can also see this since the gradient decent picks $\lambda = 0$, which indicates that it doesn't need this term to find a good feasible solution.
     In fact when I remove the vehicle constraint altogether the solution is still the same.
 
@@ -144,8 +144,6 @@
     The heuristic solution yields $-10560$ as the objective value, and a $\lambda=105$ after $10$ iterations and $\mu = 2$.
     Clearly the solution is completely invalid, naturally this must be because the solver is now instructed in simply finding a solution that minimizes cost and minimizes the amount of active customers.
     From increasing the iterations it seems like it will just keep growing until infinity.
-
-    On either my generated dataset and the supplied it keeps growing the constraint to infinity.
 
 
     \section{Task 3}
@@ -191,7 +189,7 @@
         \item\label{enum:test2} Another could be to check the constraint after the problem has been solved, if the constraint is violated then solve it again with the previously chosen path excluded.
         \item\label{enum:test} A solution could also be to introduce an additional variable like $y$, but for time window's as this can also be viewed as a resource.
     \end{enumerate}
-    I will use \autoref{enum:test}, as it seems the most appropriate (but not simple, that would certainly be \autoref{enum:test2}).
+    I will use \autoref{enum:test}, as it seems the most appropriate and it is computationally much cheaper (but not simple, that would certainly be \autoref{enum:test2}).
     To do this I will introduce a new variable $t_i$, which will be the time spent travelling to position $t_i$.
     $t_i$ should be bounded by $0 \leq t_i \leq l_i$, where $l_i$ is the latest possible time to arrive.
     This method uses big-M, denoted by $M$, and is formulated such that the solver must assign the time-spent correctly to the variable.
@@ -205,7 +203,8 @@
     \[
         \alpha_{i,j} \geq e_j \land \alpha_{i,j} \geq time_{i,j} + t_i \,\,\,\, \forall i,j \in A: j \neq 0
     \]
-    The solver will pick the smallest value to assign to $\alpha$ that is, the maximum of the two.
+    The solver will pick a valid value to $\alpha$ which is at-least larger than or equal to both values.
+    The solver has the freedom to assign any value, but we know that the correct value is the smallest possible, thus the solver will at some point try the "correct" (smallest assignment) solution if it is the only one that is feasible.
     Note that "serving time" can also easily be modelled here if wished by simply adding it to $\alpha$.
     The time constraint can now be expressed more formally as.
     \begin{equation*}
@@ -380,22 +379,9 @@
         \end{array}
     \end{equation*}
     This solution is not optimal, as we can still find solutions that yield reduced cost, but for now these are the variables ($\theta$) after adding the above column.
-    \begin{equation*}
-        \begin{array}{c}
-            \theta_{0} = 0.50\\
-            \theta_{1} = 0.00\\
-            \theta_{2} = 1.00\\
-            \theta_{3} = 0.50\\
-            \theta_{4} = 0.00\\
-            \theta_{5} = 0.00\\
-            \theta_{6} = 0.00\\
-            \theta_{7} = 0.00\\
-            \theta_{8} = 0.00\\
-            \theta_{9} = 0.50\\
-            \theta_{10} = 0.00\\
-            \theta_{11} = 0.50\\
-        \end{array}
-    \end{equation*}
+    \[
+        \theta_r = \{0.50, 0.00, 1.00, 0.50, 0.00, 0.00, 0.00, 0.00, 0.00, 0.50, 0.00, 0.50 \}
+    \]
     The first couple of tables can be found in the appendix.
     I stop at a non-integer solution, to solve task 6 and 7.
 
@@ -433,7 +419,31 @@
     To get around this I terminate if a duplicate is found with reduced cost, but I acknowledge that this is not how the algorithm should be implemented.
 
     \section{Task 6}
-
+    SR-cuts are quite trivial so I have implemented them into the pricing problem and MP, I will not write out the entire model because of report page constraints.
+    In addition to the column generation order of operations, before terminating (after finding a non-negative reduced cost), we also check SR-cut violations.
+    In this specific problem, we can imagine a three vertex complete graph where each vertex is a customer and edge a taken path, each in different routes.
+    In an IP solution, only one of these routes may be active, but when LP relaxed the solution may contain fractional variables.
+    We can improve this solution by constraining "intersecting" solutions.
+    Moreover we can introduce a variable that models a three-combination that has at-least 2 active customers.
+    \[
+        b_r^{ijk} =     \begin{cases}
+                            1, & \text{if}\ a_{i,r} + a_{j,r} + a_{k,r} \geq 2 \\
+                            0, & \text{otherwise}
+        \end{cases}
+    \]
+    \[
+        \sum_{r \in \Omega} b_r^{ijk} \theta_r \leq 1 \,\,\,\,\,\,\,\, \forall \{ i,j,k \} \in N
+    \]
+    Which becomes our new MP constraint, with the dual $\mu_{ijk}$.
+    Furthermore we model the same in the pricing problem, where $z_{ijk} = 1$ if the route visits $\geq 2$ customers.
+    \begin{equation*}
+        \begin{array}{ll@{}ll}
+            \text{minimize}  & \displaystyle\sum_{i,j \in A} ( c_{i, j} - \lambda_{1,i})x_{i,j} - \lambda_0 - \sum_{i,j,k \in N} \mu_{i,j,k} z_{i,j,k}&&\\
+            \text{subject to}& \sum_{i,s \in A} x_{i,s} + \sum_{j,s \in A} x_{j,s} + \sum_{k,s \in A} x_{k,s} - 1 \leq 2 z_{i,j,k} &&\forall i,j,k \in N\\
+            & \dots &&\\
+        \end{array}
+    \end{equation*}
+    No more space.
 
     \clearpage
     \section{Appendix}
